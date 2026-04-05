@@ -4,6 +4,7 @@ import { ptBR } from "@clerk/localizations";
 import { Poppins, Inter } from "next/font/google";
 import "./globals.css";
 import Header from "./components/header";
+import MobileBottomNav from "./components/mobile-bottom-nav";
 
 const poppins = Poppins({
   weight: ["400", "500", "600", "700"],
@@ -29,10 +30,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className={`${poppins.variable} ${inter.variable}`}>
-      <body className="min-h-screen flex flex-col font-body">
+      <body className="min-h-screen flex flex-col font-body bg-white">
         <ClerkProvider localization={ptBR}>
           <Header />
-          <main className="flex-1">{children}</main>
+          <main className="flex-1 pb-24 md:pb-0">{children}</main>
+          <MobileBottomNav />
         </ClerkProvider>
       </body>
     </html>
