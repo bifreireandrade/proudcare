@@ -1,8 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { EventoSaude, SessaoQuimio } from '@/lib/diario/types'
-import { getCorEvento } from '@/lib/diario/utils'
+import { useMemo, useState } from 'react'
+import { EventoSaude } from '@/lib/diario/types'
 import {
   startOfMonth,
   endOfMonth,
@@ -19,8 +18,23 @@ type Props = {
   onDiaClick?: (data: Date, evento?: EventoSaude) => void
 }
 
-function isSessaoQuimio(e: EventoSaude): e is SessaoQuimio {
-  return e.tipo === 'quimio'
+function getClasseCorEvento(tipo: EventoSaude['tipo']) {
+  switch (tipo) {
+    case 'quimio_feita':
+      return 'bg-proud-pink'
+    case 'quimio_agendada':
+      return 'bg-proud-blue'
+    case 'exame':
+      return 'bg-purple-500'
+    case 'retorno':
+      return 'bg-green-500'
+    default:
+      return 'bg-gray-300'
+  }
+}
+
+function isQuimio(tipo: EventoSaude['tipo']) {
+  return tipo === 'quimio_feita' || tipo === 'quimio_agendada'
 }
 
 export default function Calendario({ eventos, onDiaClick }: Props) {
@@ -29,13 +43,22 @@ export default function Calendario({ eventos, onDiaClick }: Props) {
   const inicioDoMes = startOfMonth(mesAtual)
   const fimDoMes = endOfMonth(mesAtual)
 
-  const diasDoMes = eachDayOfInterval({ start: inicioDoMes, end: fimDoMes })
+  const diasDoMes = eachDayOfInterval({
+    start: inicioDoMes,
+    end: fimDoMes,
+  })
 
   const primeiroDiaSemana = inicioDoMes.getDay()
   const diasVaziosAntes = primeiroDiaSemana === 0 ? 6 : primeiroDiaSemana - 1
 
+  const eventosOrdenados = useMemo(() => {
+    return [...eventos].sort(
+      (a, b) => new Date(a.data).getTime() - new Date(b.data).getTime()
+    )
+  }, [eventos])
+
   const getEventosNoDia = (dia: Date) => {
-    return eventos.filter((e) => isSameDay(e.data, dia))
+    return eventosOrdenados.filter((evento) => isSameDay(new Date(evento.data), dia))
   }
 
   const mesAnterior = () => setMesAtual(subMonths(mesAtual, 1))
@@ -50,13 +73,10 @@ export default function Calendario({ eventos, onDiaClick }: Props) {
       return `${base} hover:bg-gray-100 text-proud-dark ${hoje ? 'ring-2 ring-proud-pink' : ''}`
     }
 
-    const primeiro = lista[0]
-    if (isSessaoQuimio(primeiro)) {
-      const bg = getCorEvento('quimio', primeiro.status === 'concluida')
-      return `${base} ${bg} text-white hover:opacity-90`
-    }
-    const bg = getCorEvento(primeiro.tipo)
-    return `${base} ${bg} text-white hover:opacity-90`
+    const primeiroEvento = lista[0]
+    const classeCor = getClasseCorEvento(primeiroEvento.tipo)
+
+    return `${base} ${classeCor} text-white hover:opacity-90 ${hoje ? 'ring-2 ring-proud-pink ring-offset-2' : ''}`
   }
 
   return (
@@ -74,7 +94,12 @@ export default function Calendario({ eventos, onDiaClick }: Props) {
             aria-label="Mês anterior"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
 
@@ -85,7 +110,12 @@ export default function Calendario({ eventos, onDiaClick }: Props) {
             aria-label="Próximo mês"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
             </svg>
           </button>
         </div>
@@ -105,8 +135,8 @@ export default function Calendario({ eventos, onDiaClick }: Props) {
         ))}
 
         {diasDoMes.map((dia) => {
-          const noDia = getEventosNoDia(dia)
-          const principal = noDia[0]
+          const eventosNoDia = getEventosNoDia(dia)
+          const principal = eventosNoDia[0]
           const hoje = isSameDay(dia, new Date())
 
           return (
@@ -114,23 +144,25 @@ export default function Calendario({ eventos, onDiaClick }: Props) {
               key={dia.toISOString()}
               type="button"
               onClick={() => onDiaClick?.(dia, principal)}
-              className={cellClassForDay(dia, noDia)}
+              className={cellClassForDay(dia, eventosNoDia)}
             >
-              <span className={noDia.length ? 'font-bold' : ''}>{format(dia, 'd')}</span>
+              <span className={eventosNoDia.length ? 'font-bold' : ''}>{format(dia, 'd')}</span>
 
-              {principal && isSessaoQuimio(principal) && (
-                <span className="text-[10px] opacity-90 leading-none">S{principal.numeroSessao}</span>
-              )}
-
-              {principal && !isSessaoQuimio(principal) && (
+              {principal && isQuimio(principal.tipo) && (
                 <span className="text-[10px] opacity-90 leading-none">●</span>
               )}
 
-              {noDia.length > 1 && (
-                <span className="text-[9px] opacity-90 leading-none">+{noDia.length - 1}</span>
+              {principal && !isQuimio(principal.tipo) && (
+                <span className="text-[10px] opacity-90 leading-none">●</span>
               )}
 
-              {hoje && noDia.length === 0 && (
+              {eventosNoDia.length > 1 && (
+                <span className="text-[9px] opacity-90 leading-none">
+                  +{eventosNoDia.length - 1}
+                </span>
+              )}
+
+              {hoje && eventosNoDia.length === 0 && (
                 <span className="absolute bottom-1 w-1 h-1 bg-proud-pink rounded-full" />
               )}
             </button>
@@ -143,18 +175,22 @@ export default function Calendario({ eventos, onDiaClick }: Props) {
           <div className="w-4 h-4 bg-proud-pink rounded" />
           <span>Quimio (feita)</span>
         </div>
+
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-proud-blue rounded" />
           <span>Quimio (agendada)</span>
         </div>
+
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-purple-500 rounded" />
           <span>Exame</span>
         </div>
+
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-500 rounded" />
           <span>Retorno</span>
         </div>
+
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 border-2 border-proud-pink rounded" />
           <span>Hoje</span>
