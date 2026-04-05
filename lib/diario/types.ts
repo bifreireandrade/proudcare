@@ -7,7 +7,7 @@ export type Usuario = {
   tratamentoTipo?: string
 }
 
-export type TipoEvento = 'quimio' | 'exame' | 'retorno'
+export type TipoEvento = 'quimio' | 'quimio_feita' | 'quimio_agendada' | 'exame' | 'retorno'
 
 export type EventoSaude = {
   id: string

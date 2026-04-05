@@ -38,24 +38,39 @@ export default function OnboardingSessoes({
 
   const intervaloDias = useMemo(() => {
     if (!periodicidadeSelecionada) return null
-
     if (periodicidadeSelecionada === 'personalizado') {
       const valor = Number(intervaloPersonalizado)
       return Number.isFinite(valor) && valor > 0 ? valor : null
     }
-
     return Number(periodicidadeSelecionada)
   }, [periodicidadeSelecionada, intervaloPersonalizado])
 
   const existeDataPassada = useMemo(() => {
     if (!dataPrimeiraSessao) return false
-
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
-
     const primeiraData = new Date(`${dataPrimeiraSessao}T12:00:00`)
     return primeiraData < hoje
   }, [dataPrimeiraSessao])
+
+  // Calcula quais datas geradas já passaram
+  const datasPassadas = useMemo(() => {
+    if (!dataPrimeiraSessao || !intervaloDias || !quantidadeSessoes) return []
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+    const total = Number(quantidadeSessoes)
+    const passadas: string[] = []
+
+    for (let i = 0; i < total; i++) {
+      const data = new Date(`${dataPrimeiraSessao}T12:00:00`)
+      data.setDate(data.getDate() + i * intervaloDias)
+      data.setHours(0, 0, 0, 0)
+      if (data < hoje) {
+        passadas.push(data.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' }))
+      }
+    }
+    return passadas
+  }, [dataPrimeiraSessao, intervaloDias, quantidadeSessoes])
 
   const podeAvancarEtapa1 = Boolean(dataPrimeiraSessao)
   const podeAvancarEtapa2 = Boolean(intervaloDias)
@@ -66,7 +81,6 @@ export default function OnboardingSessoes({
 
   const textoResumo = useMemo(() => {
     if (!dataPrimeiraSessao || !intervaloDias || !quantidadeSessoes) return null
-
     return `Vamos organizar ${quantidadeSessoes} sessões, começando em ${new Date(
       `${dataPrimeiraSessao}T12:00:00`
     ).toLocaleDateString('pt-BR')} e repetindo a cada ${intervaloDias} dias.`
@@ -74,14 +88,12 @@ export default function OnboardingSessoes({
 
   const handleConfirmar = () => {
     if (!podeFinalizar || !intervaloDias) return
-
     onConfirm({
       dataPrimeiraSessao: new Date(`${dataPrimeiraSessao}T12:00:00`),
       quantidadeSessoes: Number(quantidadeSessoes),
       intervaloDias,
       marcarPassadasComoConcluidas,
     })
-
     setEtapa(1)
     setDataPrimeiraSessao('')
     setPeriodicidadeSelecionada(null)
@@ -103,7 +115,6 @@ export default function OnboardingSessoes({
                 Organize suas sessões
               </h2>
             </div>
-
             {podeFechar && (
               <button
                 type="button"
@@ -122,7 +133,6 @@ export default function OnboardingSessoes({
               {[1, 2, 3, 4].map((numero) => {
                 const ativa = etapa === numero
                 const concluida = etapa > numero
-
                 return (
                   <div
                     key={numero}
@@ -143,14 +153,12 @@ export default function OnboardingSessoes({
               <p className="mb-5 text-sm text-proud-gray">
                 Pode ser a primeira do tratamento ou a próxima etapa que você acabou de receber.
               </p>
-
               <input
                 type="date"
                 value={dataPrimeiraSessao}
                 onChange={(e) => setDataPrimeiraSessao(e.target.value)}
                 className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-proud-dark outline-none focus:border-proud-pink"
               />
-
               <div className="mt-6 flex gap-3">
                 {podeFechar && (
                   <button
@@ -161,7 +169,6 @@ export default function OnboardingSessoes({
                     Agora não
                   </button>
                 )}
-
                 <button
                   type="button"
                   onClick={() => setEtapa(2)}
@@ -182,11 +189,9 @@ export default function OnboardingSessoes({
               <p className="mb-5 text-sm text-proud-gray">
                 Escolha a opção que mais se aproxima do seu tratamento.
               </p>
-
               <div className="space-y-3">
                 {opcoesPeriodicidade.map((opcao) => {
                   const ativa = periodicidadeSelecionada === opcao.id
-
                   return (
                     <button
                       key={opcao.id}
@@ -203,7 +208,6 @@ export default function OnboardingSessoes({
                   )
                 })}
               </div>
-
               {periodicidadeSelecionada === 'personalizado' && (
                 <div className="mt-4">
                   <label className="mb-2 block text-sm text-proud-gray">
@@ -219,7 +223,6 @@ export default function OnboardingSessoes({
                   />
                 </div>
               )}
-
               <div className="mt-6 flex gap-3">
                 <button
                   type="button"
@@ -228,7 +231,6 @@ export default function OnboardingSessoes({
                 >
                   Voltar
                 </button>
-
                 <button
                   type="button"
                   onClick={() => setEtapa(3)}
@@ -249,7 +251,6 @@ export default function OnboardingSessoes({
               <p className="mb-5 text-sm text-proud-gray">
                 Você pode ajustar isso depois, se o plano mudar.
               </p>
-
               <input
                 type="number"
                 min={1}
@@ -258,7 +259,6 @@ export default function OnboardingSessoes({
                 placeholder="Ex: 3"
                 className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-proud-dark outline-none focus:border-proud-pink"
               />
-
               {textoResumo && (
                 <div className="mt-4 rounded-2xl bg-proud-pink/5 p-4">
                   <p className="text-sm leading-relaxed text-proud-gray">
@@ -266,7 +266,6 @@ export default function OnboardingSessoes({
                   </p>
                 </div>
               )}
-
               <div className="mt-6 flex gap-3">
                 <button
                   type="button"
@@ -275,10 +274,15 @@ export default function OnboardingSessoes({
                 >
                   Voltar
                 </button>
-
                 <button
                   type="button"
-                  onClick={() => setEtapa(4)}
+                  onClick={() => {
+                    if (!existeDataPassada) {
+                      handleConfirmar()
+                    } else {
+                      setEtapa(4)
+                    }
+                  }}
                   disabled={!podeAvancarEtapa3}
                   className="w-full rounded-2xl bg-proud-pink px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -291,12 +295,25 @@ export default function OnboardingSessoes({
           {etapa === 4 && (
             <div>
               <h3 className="mb-2 font-heading text-xl font-semibold text-proud-dark">
-                Essas sessões que já passaram aconteceram?
+                Algumas sessões já aconteceram?
               </h3>
-              <p className="mb-5 text-sm text-proud-gray">
-                {existeDataPassada
-                  ? 'Se você quiser, podemos marcar automaticamente as datas que já passaram como realizadas.'
-                  : 'Como a primeira data está no presente ou no futuro, vamos deixar tudo planejado por enquanto.'}
+
+              <p className="mb-3 text-sm text-proud-gray">
+                Identificamos {datasPassadas.length}{' '}
+                {datasPassadas.length === 1 ? 'sessão que já passou' : 'sessões que já passaram'}:
+              </p>
+
+              {/* Lista das datas passadas */}
+              <div className="mb-4 rounded-2xl bg-proud-pink/5 px-4 py-3 space-y-1">
+                {datasPassadas.map((data) => (
+                  <p key={data} className="text-sm text-proud-pink font-medium">
+                    • {data}
+                  </p>
+                ))}
+              </div>
+
+              <p className="mb-4 text-sm text-proud-gray">
+                Quer marcar essas datas como sessões já realizadas?
               </p>
 
               <div className="space-y-3">
@@ -309,9 +326,8 @@ export default function OnboardingSessoes({
                       : 'border-gray-200 text-proud-dark'
                   }`}
                 >
-                  Sim, marcar as que já passaram como realizadas
+                  Sim, marcar como realizadas
                 </button>
-
                 <button
                   type="button"
                   onClick={() => setMarcarPassadasComoConcluidas(false)}
@@ -321,7 +337,7 @@ export default function OnboardingSessoes({
                       : 'border-gray-200 text-proud-dark'
                   }`}
                 >
-                  Não, deixar tudo como planejado por enquanto
+                  Não, deixar tudo como planejado
                 </button>
               </div>
 
@@ -333,7 +349,6 @@ export default function OnboardingSessoes({
                 >
                   Voltar
                 </button>
-
                 <button
                   type="button"
                   onClick={handleConfirmar}

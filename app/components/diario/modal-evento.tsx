@@ -1,266 +1,167 @@
 'use client'
+
 import { useState } from 'react'
 import { EventoSaude, TipoEvento } from '@/lib/diario/types'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { getLabelTipo, getCorTextoEvento } from '@/lib/diario/utils'
 
 type Props = {
   isOpen: boolean
   onClose: () => void
   dia: Date
-  eventoExistente?: EventoSaude
   onSalvar: (evento: Partial<EventoSaude>) => void
-  onExcluir?: (eventoId: string) => void
 }
 
-export default function ModalEvento({ 
-  isOpen, 
-  onClose, 
-  dia, 
-  eventoExistente,
-  onSalvar,
-  onExcluir
-}: Props) {
-  const [etapa, setEtapa] = useState<'selecionar' | 'criar'>('selecionar')
-  const [tipoSelecionado, setTipoSelecionado] = useState<TipoEvento | null>(null)
-  
-  const [titulo, setTitulo] = useState(eventoExistente?.titulo || '')
-  const [horario, setHorario] = useState(eventoExistente?.horario || '')
-  const [local, setLocal] = useState(eventoExistente?.local || '')
-  const [descricao, setDescricao] = useState(eventoExistente?.descricao || '')
-  
+const opcoes = [
+  {
+    tipo: 'quimio_agendada' as TipoEvento,
+    label: 'Sessão de quimioterapia',
+    sub: 'Agendar ou reagendar',
+    cor: 'border-proud-pink',
+    titulo: 'Sessão de quimioterapia',
+  },
+  {
+    tipo: 'exame' as TipoEvento,
+    label: 'Exame de sangue',
+    sub: 'Hemograma, plaquetas, etc',
+    cor: 'border-purple-400',
+    titulo: 'Exame de sangue',
+  },
+  {
+    tipo: 'retorno' as TipoEvento,
+    label: 'Retorno médico',
+    sub: 'Consulta com oncologista',
+    cor: 'border-green-400',
+    titulo: 'Retorno médico',
+  },
+]
+
+export default function ModalEvento({ isOpen, onClose, dia, onSalvar }: Props) {
+  const [expandido, setExpandido] = useState<TipoEvento | null>(null)
+  const [horario, setHorario] = useState('')
+  const [local, setLocal] = useState('')
+
   if (!isOpen) return null
-  
-  const handleSelecaoTipo = (tipo: TipoEvento) => {
-    setTipoSelecionado(tipo)
-    setEtapa('criar')
-    
-    if (tipo === 'quimio') setTitulo('Sessão de quimioterapia')
-    if (tipo === 'exame') setTitulo('Exame de sangue')
-    if (tipo === 'retorno') setTitulo('Retorno médico')
-  }
-  
-  const handleSalvar = () => {
-    if (!tipoSelecionado) return
-    
-    const novoEvento: Partial<EventoSaude> = {
-      tipo: tipoSelecionado,
-      data: dia,
-      titulo,
-      horario,
-      local,
-      descricao,
-      usuarioId: 'user-1',
-      createdAt: new Date()
-    }
-    
-    onSalvar(novoEvento)
-    handleClose()
-  }
-  
-  const handleExcluir = () => {
-    if (eventoExistente && onExcluir) {
-      if (confirm('Tem certeza que quer excluir este evento?')) {
-        onExcluir(eventoExistente.id)
-        handleClose()
-      }
-    }
-  }
-  
+
   const handleClose = () => {
-    setEtapa('selecionar')
-    setTipoSelecionado(null)
-    setTitulo('')
+    setExpandido(null)
     setHorario('')
     setLocal('')
-    setDescricao('')
     onClose()
   }
-  
+
+  const handleSalvar = (tipo: TipoEvento, tituloBase: string) => {
+    onSalvar({
+      tipo,
+      data: dia,
+      titulo: tituloBase,
+      horario: horario || undefined,
+      local: local || undefined,
+      usuarioId: 'user-1',
+      createdAt: new Date(),
+    })
+    handleClose()
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-        
-        <div className="p-6 border-b border-gray-100">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="font-heading text-2xl font-bold text-proud-dark">
-                {eventoExistente ? 'Detalhes do evento' : format(dia, "d 'de' MMMM", { locale: ptBR })}
-              </h2>
-              {eventoExistente && (
-                <p className={`text-sm mt-1 ${getCorTextoEvento(eventoExistente.tipo)}`}>
-                  {getLabelTipo(eventoExistente.tipo)}
-                </p>
-              )}
-            </div>
-            <button 
-              type="button"
-              onClick={handleClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+    <div className="fixed inset-0 bg-black/50 z-[60] flex items-end sm:items-center justify-center">
+      <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-md">
+
+        {/* Handle bar mobile */}
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
         </div>
-        
-        <div className="p-6">
-          
-          {eventoExistente && (
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-proud-gray mb-1">Título</p>
-                <p className="font-medium text-proud-dark">{eventoExistente.titulo}</p>
-              </div>
-              
-              {eventoExistente.horario && (
-                <div>
-                  <p className="text-sm text-proud-gray mb-1">Horário</p>
-                  <p className="font-medium text-proud-dark">{eventoExistente.horario}</p>
-                </div>
-              )}
-              
-              {eventoExistente.local && (
-                <div>
-                  <p className="text-sm text-proud-gray mb-1">Local</p>
-                  <p className="font-medium text-proud-dark">{eventoExistente.local}</p>
-                </div>
-              )}
-              
-              {eventoExistente.descricao && (
-                <div>
-                  <p className="text-sm text-proud-gray mb-1">Observações</p>
-                  <p className="text-proud-dark">{eventoExistente.descricao}</p>
-                </div>
-              )}
-              
-              <div className="flex gap-3 pt-4">
-                <button 
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div>
+            <p className="text-xs text-proud-gray">Adicionar evento</p>
+            <h2 className="font-heading text-base font-semibold text-proud-dark capitalize">
+              {format(dia, "d 'de' MMMM", { locale: ptBR })}
+            </h2>
+          </div>
+          <button type="button" onClick={handleClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Opções */}
+        <div className="p-4 space-y-2 pb-[max(env(safe-area-inset-bottom),16px)]">
+          <p className="text-xs text-proud-gray mb-3">O que você quer adicionar?</p>
+
+          {opcoes.map(({ tipo, label, sub, cor, titulo }) => {
+            const aberto = expandido === tipo
+
+            return (
+              <div key={tipo} className={`border-2 ${cor} rounded-xl overflow-hidden transition-all`}>
+                {/* Linha principal — clique salva direto */}
+                <button
                   type="button"
-                  onClick={handleExcluir}
-                  className="flex-1 border-2 border-red-500 text-red-500 px-4 py-3 rounded-lg font-medium hover:bg-red-50 transition"
+                  onClick={() => {
+                    if (!aberto) {
+                      // salva direto sem detalhes extras
+                      handleSalvar(tipo, titulo)
+                    }
+                  }}
+                  className="w-full text-left px-4 py-3 hover:bg-gray-50 transition"
                 >
-                  Excluir
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-proud-dark">{label}</p>
+                      <p className="text-xs text-proud-gray mt-0.5">{sub}</p>
+                    </div>
+                    {/* Botão de detalhes opcionais */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setExpandido(aberto ? null : tipo)
+                        setHorario('')
+                        setLocal('')
+                      }}
+                      className="text-xs text-proud-gray ml-2 whitespace-nowrap"
+                    >
+                      {aberto ? 'Cancelar' : '+ detalhes'}
+                    </button>
+                  </div>
                 </button>
-                <button 
-                  type="button"
-                  onClick={handleClose}
-                  className="flex-1 bg-proud-pink text-white px-4 py-3 rounded-lg font-medium hover:bg-proud-pink/90 transition"
-                >
-                  Fechar
-                </button>
+
+                {/* Campos extras — só se expandido */}
+                {aberto && (
+                  <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
+                    <div>
+                      <label className="block text-xs text-proud-gray mb-1">Horário (opcional)</label>
+                      <input
+                        type="time"
+                        value={horario}
+                        onChange={(e) => setHorario(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-proud-pink"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-proud-gray mb-1">Local (opcional)</label>
+                      <input
+                        type="text"
+                        value={local}
+                        onChange={(e) => setLocal(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-proud-pink"
+                        placeholder="Ex: Hospital XYZ, Sala 302..."
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSalvar(tipo, titulo)}
+                      className="w-full bg-proud-pink text-white py-2.5 rounded-xl text-sm font-medium"
+                    >
+                      Salvar
+                    </button>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
-          
-          {!eventoExistente && etapa === 'selecionar' && (
-            <div className="space-y-4">
-              <p className="text-proud-gray mb-4">O que você quer adicionar nesse dia?</p>
-              
-              <button 
-                type="button"
-                onClick={() => handleSelecaoTipo('quimio')}
-                className="w-full border-2 border-proud-pink text-left p-4 rounded-xl hover:bg-proud-pink/5 transition"
-              >
-                <div className="font-semibold text-proud-dark mb-1">Sessão de quimioterapia</div>
-                <div className="text-sm text-proud-gray">Agendar ou reagendar uma sessão</div>
-              </button>
-              
-              <button 
-                type="button"
-                onClick={() => handleSelecaoTipo('exame')}
-                className="w-full border-2 border-purple-500 text-left p-4 rounded-xl hover:bg-purple-50 transition"
-              >
-                <div className="font-semibold text-proud-dark mb-1">Exame de sangue</div>
-                <div className="text-sm text-proud-gray">Hemograma, plaquetas, etc</div>
-              </button>
-              
-              <button 
-                type="button"
-                onClick={() => handleSelecaoTipo('retorno')}
-                className="w-full border-2 border-green-500 text-left p-4 rounded-xl hover:bg-green-50 transition"
-              >
-                <div className="font-semibold text-proud-dark mb-1">Retorno médico</div>
-                <div className="text-sm text-proud-gray">Consulta com oncologista ou outro médico</div>
-              </button>
-            </div>
-          )}
-          
-          {!eventoExistente && etapa === 'criar' && tipoSelecionado && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-proud-dark mb-2">
-                  Título
-                </label>
-                <input 
-                  type="text"
-                  value={titulo}
-                  onChange={(e) => setTitulo(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-proud-pink"
-                  placeholder="Ex: Sessão 5, Hemograma completo..."
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-proud-dark mb-2">
-                  Horário (opcional)
-                </label>
-                <input 
-                  type="time"
-                  value={horario}
-                  onChange={(e) => setHorario(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-proud-pink"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-proud-dark mb-2">
-                  Local (opcional)
-                </label>
-                <input 
-                  type="text"
-                  value={local}
-                  onChange={(e) => setLocal(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-proud-pink"
-                  placeholder="Ex: Hospital XYZ, Sala 302..."
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-proud-dark mb-2">
-                  Observações (opcional)
-                </label>
-                <textarea 
-                  value={descricao}
-                  onChange={(e) => setDescricao(e.target.value)}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-proud-pink resize-none"
-                  placeholder="Alguma observação importante..."
-                />
-              </div>
-              
-              <div className="flex gap-3 pt-4">
-                <button 
-                  type="button"
-                  onClick={() => setEtapa('selecionar')}
-                  className="flex-1 border-2 border-gray-300 text-proud-dark px-4 py-3 rounded-lg font-medium hover:bg-gray-50 transition"
-                >
-                  Voltar
-                </button>
-                <button 
-                  type="button"
-                  onClick={handleSalvar}
-                  disabled={!titulo.trim()}
-                  className="flex-1 bg-proud-pink text-white px-4 py-3 rounded-lg font-medium hover:bg-proud-pink/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Salvar
-                </button>
-              </div>
-            </div>
-          )}
-          
+            )
+          })}
         </div>
       </div>
     </div>
