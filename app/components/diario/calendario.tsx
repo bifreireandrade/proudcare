@@ -3,15 +3,23 @@
 import { useMemo, useState } from 'react'
 import { EventoSaude } from '@/lib/diario/types'
 import {
-  startOfMonth, endOfMonth, eachDayOfInterval,
-  format, isSameDay, addMonths, subMonths,
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  format,
+  isSameDay,
+  startOfMonth,
+  subMonths,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { criarDataLocalSegura, isPassado } from '@/lib/diario/utils'
 
 type Props = {
   eventos: EventoSaude[]
   onAdicionarEvento?: (dia: Date) => void
   onExcluirEvento?: (eventoId: string) => void
+  onRegistrar?: (evento: EventoSaude) => void
+  onMarcarSessaoRealizada?: (evento: EventoSaude) => void
 }
 
 const corHexPorTipo: Record<string, string> = {
@@ -30,24 +38,19 @@ const corBgPorTipo: Record<string, string> = {
 
 const ordemPrioridade = ['quimio_feita', 'quimio_agendada', 'retorno', 'exame']
 
-function eventoPrincipal(eventos: EventoSaude[]): EventoSaude | null {
-  for (const tipo of ordemPrioridade) {
-    const found = eventos.find((e) => e.tipo === tipo)
-    if (found) return found
-  }
-  return eventos[0] ?? null
-}
-
-// Remove eventos manuais de quimio quando já existe sessão no mesmo dia
 function deduplicar(eventos: EventoSaude[]): EventoSaude[] {
-  const sessoes = eventos.filter(e => e.id.startsWith('sessao-'))
-  const manuais = eventos.filter(e => !e.id.startsWith('sessao-'))
+  const sessoes = eventos.filter((e) => e.id.startsWith('sessao-'))
+  const manuais = eventos.filter((e) => !e.id.startsWith('sessao-'))
 
-  const manuaisFiltrados = manuais.filter(manual => {
-    // Se for quimio manual e já existe sessão no mesmo dia, remove
-    if (manual.tipo === 'quimio' || manual.tipo === 'quimio_agendada' || manual.tipo === 'quimio_feita') {
-      return !sessoes.some(s => isSameDay(new Date(s.data), new Date(manual.data)))
+  const manuaisFiltrados = manuais.filter((manual) => {
+    if (
+      manual.tipo === 'quimio' ||
+      manual.tipo === 'quimio_agendada' ||
+      manual.tipo === 'quimio_feita'
+    ) {
+      return !sessoes.some((s) => isSameDay(criarDataLocalSegura(s.data), criarDataLocalSegura(manual.data)))
     }
+
     return true
   })
 
@@ -69,11 +72,10 @@ function DiaCell({
 }) {
   const num = format(dia, 'd')
   const temEvento = eventos.length > 0
-  const principal = eventoPrincipal(eventos)
 
-  // Tipos únicos por prioridade
-  const tiposUnicos = [...new Set(eventos.map(e => e.tipo))]
-    .sort((a, b) => ordemPrioridade.indexOf(a) - ordemPrioridade.indexOf(b))
+  const tiposUnicos = [...new Set(eventos.map((e) => e.tipo))].sort(
+    (a, b) => ordemPrioridade.indexOf(a) - ordemPrioridade.indexOf(b)
+  )
 
   const cor1 = tiposUnicos[0] ? corHexPorTipo[tiposUnicos[0]] : null
   const cor2 = tiposUnicos[1] ? corHexPorTipo[tiposUnicos[1]] : null
@@ -81,33 +83,30 @@ function DiaCell({
   const ringClass = selecionado
     ? 'ring-2 ring-proud-dark ring-offset-1'
     : hoje && !temEvento
-    ? 'ring-2 ring-proud-pink'
-    : hoje && temEvento
-    ? 'ring-2 ring-proud-pink ring-offset-1'
-    : ''
+      ? 'ring-2 ring-proud-pink'
+      : hoje && temEvento
+        ? 'ring-2 ring-proud-pink ring-offset-1'
+        : ''
 
   if (!temEvento) {
     return (
       <button
         type="button"
         onClick={onClick}
-        className={`aspect-square rounded-lg flex flex-col items-center justify-center text-xs text-proud-dark hover:bg-gray-100 transition relative ${ringClass}`}
+        className={`relative aspect-square rounded-lg text-xs text-proud-dark transition hover:bg-gray-100 ${ringClass} flex items-center justify-center`}
       >
         <span>{num}</span>
-        {hoje && (
-          <span className="absolute bottom-1 w-1 h-1 bg-proud-pink rounded-full" />
-        )}
+        {hoje && <span className="absolute bottom-1 h-1 w-1 rounded-full bg-proud-pink" />}
       </button>
     )
   }
 
-  // Dia com 2 tipos: dividido diagonalmente
   if (cor2) {
     return (
       <button
         type="button"
         onClick={onClick}
-        className={`aspect-square rounded-lg overflow-hidden relative text-xs font-bold text-white transition ${ringClass}`}
+        className={`relative aspect-square overflow-hidden rounded-lg text-xs font-bold text-white transition ${ringClass}`}
         style={{
           background: `linear-gradient(135deg, ${cor1} 50%, ${cor2} 50%)`,
         }}
@@ -117,12 +116,11 @@ function DiaCell({
     )
   }
 
-  // Dia com 1 tipo: cor sólida
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`aspect-square rounded-lg flex items-center justify-center text-xs font-bold text-white transition ${corBgPorTipo[tiposUnicos[0]] ?? 'bg-gray-300'} ${ringClass}`}
+      className={`aspect-square rounded-lg text-xs font-bold text-white transition ${corBgPorTipo[tiposUnicos[0]] ?? 'bg-gray-300'} ${ringClass} flex items-center justify-center`}
     >
       {num}
     </button>
@@ -135,23 +133,26 @@ function PainelDia({
   onAdicionar,
   onExcluir,
   onRegistrar,
+  onMarcarSessaoRealizada,
 }: {
   dia: Date
   eventos: EventoSaude[]
   onAdicionar: () => void
   onExcluir?: (id: string) => void
-  onRegistrar?: () => void
+  onRegistrar?: (evento: EventoSaude) => void
+  onMarcarSessaoRealizada?: (evento: EventoSaude) => void
 }) {
   const dataFormatada = format(dia, "d 'de' MMMM", { locale: ptBR })
   const hoje = isSameDay(dia, new Date())
 
   return (
-    <div className="mt-3 rounded-2xl border border-gray-100 bg-white overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 bg-proud-pink/5 border-b border-gray-100">
+    <div className="mt-3 overflow-hidden rounded-2xl border border-gray-100 bg-white">
+      <div className="flex items-center justify-between border-b border-gray-100 bg-proud-pink/5 px-4 py-3">
         <div>
-          <p className="text-sm font-semibold text-proud-dark capitalize">{dataFormatada}</p>
+          <p className="text-sm font-semibold capitalize text-proud-dark">{dataFormatada}</p>
           {hoje && <p className="text-xs text-proud-pink">Hoje</p>}
         </div>
+
         <button
           type="button"
           onClick={onAdicionar}
@@ -167,74 +168,115 @@ function PainelDia({
             <p className="text-sm text-proud-gray">Nenhum evento nesse dia.</p>
           </div>
         ) : (
-          eventos.map((evento) => (
-            <div key={evento.id} className="px-4 py-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3 flex-1">
-                  <div
-                    className="mt-1 w-2.5 h-2.5 rounded-full flex-shrink-0"
-                    style={{ background: corHexPorTipo[evento.tipo] ?? '#ccc' }}
-                  />
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-proud-dark mb-0.5">{evento.titulo}</p>
+          eventos.map((evento) => {
+            const dataEvento = criarDataLocalSegura(evento.data)
+            const sessaoPassadaPendente =
+              evento.tipo === 'quimio_agendada' &&
+              evento.id.startsWith('sessao-') &&
+              isPassado(dataEvento)
 
-                    {evento.horario && (
-                      <p className="text-xs text-proud-gray mb-0.5">{evento.horario}</p>
-                    )}
-                    {evento.local && (
-                      <p className="text-xs text-proud-gray mb-0.5">{evento.local}</p>
-                    )}
+            return (
+              <div key={evento.id} className="px-4 py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-1 items-start gap-3">
+                    <div
+                      className="mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                      style={{ background: corHexPorTipo[evento.tipo] ?? '#ccc' }}
+                    />
 
-                    {/* Dica para quimio agendada */}
-                    {evento.tipo === 'quimio_agendada' && (
-                      <p className="text-xs text-proud-blue mt-1.5 leading-relaxed">
-                        Chegue 1h antes para iniciar o resfriamento. Leve lanche leve e agasalho.
-                      </p>
-                    )}
+                    <div className="flex-1">
+                      <p className="mb-0.5 text-sm font-semibold text-proud-dark">{evento.titulo}</p>
 
-                    {/* Jejum para exame */}
-                    {evento.tipo === 'exame' && (evento as any).jejum && (
-                      <p className="text-xs text-purple-500 mt-1">Jejum necessário</p>
-                    )}
+                      {evento.horario && (
+                        <p className="mb-0.5 text-xs text-proud-gray">{evento.horario}</p>
+                      )}
 
-                    {evento.descricao && evento.tipo !== 'quimio_agendada' && (
-                      <p className="text-xs text-proud-gray mt-1">{evento.descricao}</p>
-                    )}
+                      {evento.local && (
+                        <p className="mb-0.5 text-xs text-proud-gray">{evento.local}</p>
+                      )}
 
-                    {(evento.tipo === 'quimio_agendada' || evento.tipo === 'quimio_feita') && onRegistrar && (
-                      <button
-                        type="button"
-                        onClick={onRegistrar}
-                        className="mt-2 text-xs text-proud-pink font-medium"
-                      >
-                        Registrar como estou →
-                      </button>
-                    )}
+                      {evento.tipo === 'quimio_agendada' && !sessaoPassadaPendente && (
+                        <p className="mt-1.5 text-xs leading-relaxed text-proud-blue">
+                          Chegue 1h antes para iniciar o resfriamento. Leve um lanche leve e um agasalho.
+                        </p>
+                      )}
+
+                      {evento.tipo === 'exame' && (evento as any).jejum && (
+                        <p className="mt-1 text-xs text-purple-500">Jejum necessário</p>
+                      )}
+
+                      {evento.descricao && evento.tipo !== 'quimio_agendada' && (
+                        <p className="mt-1 text-xs text-proud-gray">{evento.descricao}</p>
+                      )}
+
+                      {sessaoPassadaPendente && (
+                        <div className="mt-3 rounded-xl bg-proud-pink/5 p-3">
+                          <p className="text-xs font-medium text-proud-dark">
+                            Essa sessão aconteceu?
+                          </p>
+                          <p className="mt-1 text-xs leading-relaxed text-proud-gray">
+                            Se aconteceu, você pode marcar como realizada e depois registrar como se sentiu.
+                          </p>
+
+                          <div className="mt-3 flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => onMarcarSessaoRealizada?.(evento)}
+                              className="rounded-full bg-proud-pink px-3 py-1.5 text-xs font-medium text-white"
+                            >
+                              Sim, aconteceu
+                            </button>
+
+                            <button
+                              type="button"
+                              className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-proud-gray"
+                            >
+                              Ainda não
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {(evento.tipo === 'quimio_agendada' || evento.tipo === 'quimio_feita') && onRegistrar && (
+                        <button
+                          type="button"
+                          onClick={() => onRegistrar(evento)}
+                          className="mt-2 text-xs font-medium text-proud-pink"
+                        >
+                          Registrar como estou →
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                {/* Excluir só eventos manuais */}
-                {!evento.id.startsWith('sessao-') && onExcluir && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (confirm('Excluir este evento?')) onExcluir(evento.id)
-                    }}
-                    className="text-gray-300 hover:text-red-400 transition text-lg leading-none mt-0.5"
-                  >
-                    ×
-                  </button>
-                )}
+                  {!evento.id.startsWith('sessao-') && onExcluir && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm('Excluir este evento?')) onExcluir(evento.id)
+                      }}
+                      className="mt-0.5 text-lg leading-none text-gray-300 transition hover:text-red-400"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
     </div>
   )
 }
 
-export default function Calendario({ eventos, onAdicionarEvento, onExcluirEvento }: Props) {
+export default function Calendario({
+  eventos,
+  onAdicionarEvento,
+  onExcluirEvento,
+  onRegistrar,
+  onMarcarSessaoRealizada,
+}: Props) {
   const [mesAtual, setMesAtual] = useState(new Date())
   const [diaSelecionado, setDiaSelecionado] = useState<Date | null>(null)
 
@@ -247,56 +289,67 @@ export default function Calendario({ eventos, onAdicionarEvento, onExcluirEvento
 
   const eventosDeduplicados = useMemo(() => deduplicar(eventos), [eventos])
 
-  const eventosOrdenados = useMemo(() =>
-    [...eventosDeduplicados].sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime()),
+  const eventosOrdenados = useMemo(
+    () =>
+      [...eventosDeduplicados].sort(
+        (a, b) => criarDataLocalSegura(a.data).getTime() - criarDataLocalSegura(b.data).getTime()
+      ),
     [eventosDeduplicados]
   )
 
   const getEventosNoDia = (dia: Date) =>
-    eventosOrdenados.filter((e) => isSameDay(new Date(e.data), dia))
+    eventosOrdenados.filter((e) => isSameDay(criarDataLocalSegura(e.data), dia))
 
   const eventosDiaSelecionado = diaSelecionado ? getEventosNoDia(diaSelecionado) : []
 
   const handleDiaClick = (dia: Date) => {
     if (diaSelecionado && isSameDay(dia, diaSelecionado)) {
       setDiaSelecionado(null)
-    } else {
-      setDiaSelecionado(dia)
+      return
     }
+
+    setDiaSelecionado(dia)
   }
 
   return (
     <div>
-      <div className="bg-white rounded-2xl border border-gray-100 p-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-heading text-base font-semibold text-proud-dark capitalize">
+      <div className="rounded-2xl border border-gray-100 bg-white p-4">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-heading text-base font-semibold capitalize text-proud-dark">
             {format(mesAtual, 'MMMM yyyy', { locale: ptBR })}
           </h3>
+
           <div className="flex gap-1">
-            <button type="button" onClick={() => setMesAtual(subMonths(mesAtual, 1))}
-              className="p-1.5 hover:bg-gray-100 rounded-lg transition">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button
+              type="button"
+              onClick={() => setMesAtual(subMonths(mesAtual, 1))}
+              className="rounded-lg p-1.5 transition hover:bg-gray-100"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <button type="button" onClick={() => setMesAtual(addMonths(mesAtual, 1))}
-              className="p-1.5 hover:bg-gray-100 rounded-lg transition">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+
+            <button
+              type="button"
+              onClick={() => setMesAtual(addMonths(mesAtual, 1))}
+              className="rounded-lg p-1.5 transition hover:bg-gray-100"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
           </div>
         </div>
 
-        {/* Dias da semana */}
-        <div className="grid grid-cols-7 mb-1">
+        <div className="mb-1 grid grid-cols-7">
           {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((d) => (
-            <div key={d} className="text-center text-[11px] font-medium text-proud-gray py-1">{d}</div>
+            <div key={d} className="py-1 text-center text-[11px] font-medium text-proud-gray">
+              {d}
+            </div>
           ))}
         </div>
 
-        {/* Grid */}
         <div className="grid grid-cols-7 gap-1">
           {Array.from({ length: diasVaziosAntes }).map((_, i) => (
             <div key={`vazio-${i}`} className="aspect-square" />
@@ -309,7 +362,7 @@ export default function Calendario({ eventos, onAdicionarEvento, onExcluirEvento
 
             return (
               <DiaCell
-                key={dia.toISOString()}
+                key={`${dia.getFullYear()}-${dia.getMonth()}-${dia.getDate()}`}
                 dia={dia}
                 eventos={eventosNoDia}
                 hoje={hoje}
@@ -320,8 +373,7 @@ export default function Calendario({ eventos, onAdicionarEvento, onExcluirEvento
           })}
         </div>
 
-        {/* Legenda */}
-        <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
           {[
             { cor: '#D6188F', label: 'Quimio feita' },
             { cor: '#4DD4E8', label: 'Quimio agendada' },
@@ -329,21 +381,21 @@ export default function Calendario({ eventos, onAdicionarEvento, onExcluirEvento
             { cor: '#22c55e', label: 'Retorno' },
           ].map(({ cor, label }) => (
             <div key={label} className="flex items-center gap-1">
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: cor }} />
+              <div className="h-2.5 w-2.5 rounded-full" style={{ background: cor }} />
               <span className="text-[10px] text-proud-gray">{label}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Painel inline */}
       {diaSelecionado && (
         <PainelDia
           dia={diaSelecionado}
           eventos={eventosDiaSelecionado}
           onAdicionar={() => onAdicionarEvento?.(diaSelecionado)}
           onExcluir={onExcluirEvento}
-          onRegistrar={() => { window.location.href = '/diario?tab=registrar' }}
+          onRegistrar={onRegistrar}
+          onMarcarSessaoRealizada={onMarcarSessaoRealizada}
         />
       )}
     </div>

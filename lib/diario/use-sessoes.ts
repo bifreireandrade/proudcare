@@ -1,41 +1,68 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { SessaoQuimio } from './types'
+import { useEffect, useState } from 'react'
 import { sessoesMock } from './mock-data'
+import { SessaoQuimio } from './types'
+import { criarDataLocalSegura, normalizarParaMeioDia } from './utils'
 
 const CHAVE = 'proudcare:sessoes'
+
+function hidratarSessao(s: SessaoQuimio): SessaoQuimio {
+  return {
+    ...s,
+    data: criarDataLocalSegura(s.data),
+    createdAt: criarDataLocalSegura(s.createdAt),
+  }
+}
+
+function hidratarLista(lista: SessaoQuimio[]): SessaoQuimio[] {
+  return lista
+    .map(hidratarSessao)
+    .sort((a, b) => a.data.getTime() - b.data.getTime())
+}
 
 export function useSessoes() {
   const [sessoes, setSessoesState] = useState<SessaoQuimio[]>([])
   const [carregado, setCarregado] = useState(false)
 
-  // Carrega do localStorage na primeira vez
   useEffect(() => {
     try {
       const salvo = localStorage.getItem(CHAVE)
+
       if (salvo) {
-        const parsed = JSON.parse(salvo).map((s: SessaoQuimio) => ({
-          ...s,
-          data: new Date(s.data),
-          createdAt: new Date(s.createdAt),
-        }))
-        setSessoesState(parsed)
+        const parsed = JSON.parse(salvo) as SessaoQuimio[]
+        setSessoesState(hidratarLista(parsed))
       } else {
-        // Primeira vez: usa mock como ponto de partida
-        setSessoesState(sessoesMock)
-        localStorage.setItem(CHAVE, JSON.stringify(sessoesMock))
+        const mocksNormalizados = hidratarLista(
+          sessoesMock.map((sessao) => ({
+            ...sessao,
+            data: normalizarParaMeioDia(new Date(sessao.data)),
+            createdAt: normalizarParaMeioDia(new Date(sessao.createdAt)),
+          }))
+        )
+        setSessoesState(mocksNormalizados)
+        localStorage.setItem(CHAVE, JSON.stringify(mocksNormalizados))
       }
     } catch {
-      setSessoesState(sessoesMock)
+      const mocksNormalizados = hidratarLista(
+        sessoesMock.map((sessao) => ({
+          ...sessao,
+          data: normalizarParaMeioDia(new Date(sessao.data)),
+          createdAt: normalizarParaMeioDia(new Date(sessao.createdAt)),
+        }))
+      )
+      setSessoesState(mocksNormalizados)
     }
+
     setCarregado(true)
   }, [])
 
-  // Salva sempre que sessoes mudar
-  function setSessoes(novas: SessaoQuimio[] | ((atual: SessaoQuimio[]) => SessaoQuimio[])) {
+  function setSessoes(
+    novas: SessaoQuimio[] | ((atual: SessaoQuimio[]) => SessaoQuimio[])
+  ) {
     setSessoesState((atual) => {
-      const resultado = typeof novas === 'function' ? novas(atual) : novas
+      const resultadoBruto = typeof novas === 'function' ? novas(atual) : novas
+      const resultado = hidratarLista(resultadoBruto)
       localStorage.setItem(CHAVE, JSON.stringify(resultado))
       return resultado
     })
@@ -49,7 +76,14 @@ export function useSessoes() {
 
   function limparTudo() {
     localStorage.removeItem(CHAVE)
-    setSessoesState(sessoesMock)
+    const mocksNormalizados = hidratarLista(
+      sessoesMock.map((sessao) => ({
+        ...sessao,
+        data: normalizarParaMeioDia(new Date(sessao.data)),
+        createdAt: normalizarParaMeioDia(new Date(sessao.createdAt)),
+      }))
+    )
+    setSessoesState(mocksNormalizados)
   }
 
   return { sessoes, setSessoes, marcarComoRealizada, limparTudo, carregado }

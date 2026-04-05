@@ -43,10 +43,14 @@ export default function ModalEvento({ isOpen, onClose, dia, onSalvar }: Props) {
 
   if (!isOpen) return null
 
-  const handleClose = () => {
+  const resetarCampos = () => {
     setExpandido(null)
     setHorario('')
     setLocal('')
+  }
+
+  const handleClose = () => {
+    resetarCampos()
     onClose()
   }
 
@@ -64,96 +68,100 @@ export default function ModalEvento({ isOpen, onClose, dia, onSalvar }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[60] flex items-end sm:items-center justify-center">
-      <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-md">
-
-        {/* Handle bar mobile */}
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center">
+      <div className="w-full max-w-md rounded-t-3xl bg-white sm:rounded-2xl">
+        <div className="flex justify-center pb-1 pt-3 sm:hidden">
+          <div className="h-1 w-10 rounded-full bg-gray-200" />
         </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div>
             <p className="text-xs text-proud-gray">Adicionar evento</p>
-            <h2 className="font-heading text-base font-semibold text-proud-dark capitalize">
+            <h2 className="font-heading text-base font-semibold capitalize text-proud-dark">
               {format(dia, "d 'de' MMMM", { locale: ptBR })}
             </h2>
           </div>
-          <button type="button" onClick={handleClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+
+          <button
+            type="button"
+            onClick={handleClose}
+            className="rounded-lg p-1.5 transition hover:bg-gray-100"
+            aria-label="Fechar modal"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Opções */}
-        <div className="p-4 space-y-2 pb-[max(env(safe-area-inset-bottom),16px)]">
-          <p className="text-xs text-proud-gray mb-3">O que você quer adicionar?</p>
+        <div className="space-y-2 p-4 pb-[max(env(safe-area-inset-bottom),16px)]">
+          <p className="mb-3 text-xs text-proud-gray">O que você quer adicionar?</p>
 
           {opcoes.map(({ tipo, label, sub, cor, titulo }) => {
             const aberto = expandido === tipo
 
             return (
-              <div key={tipo} className={`border-2 ${cor} rounded-xl overflow-hidden transition-all`}>
-                {/* Linha principal — clique salva direto */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!aberto) {
-                      // salva direto sem detalhes extras
-                      handleSalvar(tipo, titulo)
-                    }
-                  }}
-                  className="w-full text-left px-4 py-3 hover:bg-gray-50 transition"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-proud-dark">{label}</p>
-                      <p className="text-xs text-proud-gray mt-0.5">{sub}</p>
-                    </div>
-                    {/* Botão de detalhes opcionais */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setExpandido(aberto ? null : tipo)
-                        setHorario('')
-                        setLocal('')
-                      }}
-                      className="text-xs text-proud-gray ml-2 whitespace-nowrap"
-                    >
-                      {aberto ? 'Cancelar' : '+ detalhes'}
-                    </button>
+              <div
+                key={tipo}
+                className={`overflow-hidden rounded-xl border-2 ${cor} transition-all`}
+              >
+                <div className="flex items-start justify-between gap-3 px-4 py-3">
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleSalvar(tipo, titulo)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        handleSalvar(tipo, titulo)
+                      }
+                    }}
+                    className="flex-1 cursor-pointer text-left"
+                  >
+                    <p className="text-sm font-semibold text-proud-dark">{label}</p>
+                    <p className="mt-0.5 text-xs text-proud-gray">{sub}</p>
                   </div>
-                </button>
 
-                {/* Campos extras — só se expandido */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExpandido(aberto ? null : tipo)
+                      setHorario('')
+                      setLocal('')
+                    }}
+                    className="whitespace-nowrap text-xs text-proud-gray"
+                  >
+                    {aberto ? 'Cancelar' : '+ detalhes'}
+                  </button>
+                </div>
+
                 {aberto && (
-                  <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
+                  <div className="space-y-3 border-t border-gray-100 px-4 pb-4 pt-3">
                     <div>
-                      <label className="block text-xs text-proud-gray mb-1">Horário (opcional)</label>
+                      <label className="mb-1 block text-xs text-proud-gray">Horário (opcional)</label>
                       <input
                         type="time"
                         value={horario}
                         onChange={(e) => setHorario(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-proud-pink"
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-proud-pink focus:outline-none"
                       />
                     </div>
+
                     <div>
-                      <label className="block text-xs text-proud-gray mb-1">Local (opcional)</label>
+                      <label className="mb-1 block text-xs text-proud-gray">Local (opcional)</label>
                       <input
                         type="text"
                         value={local}
                         onChange={(e) => setLocal(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-proud-pink"
-                        placeholder="Ex: Hospital XYZ, Sala 302..."
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-proud-pink focus:outline-none"
+                        placeholder="Ex: Hospital, clínica, consultório..."
                       />
                     </div>
+
                     <button
                       type="button"
                       onClick={() => handleSalvar(tipo, titulo)}
-                      className="w-full bg-proud-pink text-white py-2.5 rounded-xl text-sm font-medium"
+                      className="w-full rounded-xl bg-proud-pink py-2.5 text-sm font-medium text-white"
                     >
                       Salvar
                     </button>
