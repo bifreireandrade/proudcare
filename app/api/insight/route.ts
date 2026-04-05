@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
-  const { registros } = await req.json()
+  let registros: unknown
+  try {
+    const body = await req.json()
+    registros = body?.registros
+  } catch {
+    return NextResponse.json({ erro: 'JSON inválido' }, { status: 400 })
+  }
+
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json({ erro: 'Serviço não configurado' }, { status: 503 })
+  }
 
   const prompt = `Você é uma assistente gentil e acolhedora do app ProudCare, voltado para mulheres em tratamento de quimioterapia.
 Analise os registros de sintomas da paciente e gere uma observação humana, calorosa e encorajadora sobre os padrões que você identifica.
@@ -29,7 +39,6 @@ Registros: ${JSON.stringify(registros)}`
     )
 
     const data = await response.json()
-    console.log('Gemini response:', JSON.stringify(data, null, 2))
 
     const texto = data.candidates?.[0]?.content?.parts?.[0]?.text
 

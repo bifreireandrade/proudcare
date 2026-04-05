@@ -10,15 +10,16 @@ import ProgressoDaJornada from '../components/diario/progressodajornada'
 import OnboardingSessoes from '../components/diario/onboarding-sessoes'
 import RegistroDiarioForm from '../components/diario/registro-diario'
 import InsightIA from '../components/diario/insight-ia'
-import { todosEventosMock } from '@/lib/diario/mock-data'
 import { useSessoes } from '@/lib/diario/use-sessoes'
 import { useRegistros } from '@/lib/diario/use-registros'
+import { useEventosManuais } from '@/lib/diario/use-eventos-manuais'
 import { formatarData, getProximaSessao } from '@/lib/diario/utils'
 import { EventoSaude, SessaoQuimio } from '@/lib/diario/types'
 
 const tabs = [
   { id: 'hoje', label: 'Hoje' },
   { id: 'calendario', label: 'Calendário' },
+  { id: 'registrar', label: 'Registrar' },
   { id: 'historico', label: 'Histórico' },
   { id: 'proximas', label: 'Próximas' },
 ] as const
@@ -35,9 +36,9 @@ export default function Diario() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const { sessoes, setSessoes, marcarComoRealizada, carregado } = useSessoes()
-  const { registros, getRegistrosDaSessao, getUltimoRegistro } = useRegistros()
-  const [eventosManuais, setEventosManuais] = useState<EventoSaude[]>(todosEventosMock)
+  const { sessoes, setSessoes, marcarComoRealizada, carregado: sessoesCarregadas } = useSessoes()
+  const { registros, getRegistrosDaSessao, getUltimoRegistro, salvarRegistro } = useRegistros()
+  const { eventosManuais, setEventosManuais, carregado: eventosCarregados } = useEventosManuais()
   const [modalAberto, setModalAberto] = useState(false)
   const [diaSelecionadoModal, setDiaSelecionadoModal] = useState<Date | null>(null)
   const [mostrarOnboarding, setMostrarOnboarding] = useState(false)
@@ -124,11 +125,11 @@ export default function Diario() {
       horario: novoEvento.horario,
       createdAt: new Date(),
     }
-    setEventosManuais([...eventosManuais, eventoCompleto])
+    setEventosManuais((prev) => [...prev, eventoCompleto])
   }
 
   const handleExcluirEvento = (eventoId: string) => {
-    setEventosManuais(eventosManuais.filter((e) => e.id !== eventoId))
+    setEventosManuais((prev) => prev.filter((e) => e.id !== eventoId))
   }
 
   const handleCriarSessoes = ({
@@ -144,16 +145,23 @@ export default function Diario() {
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
 
+    const baseTs = Date.now()
     const novasSessoes: SessaoQuimio[] = Array.from({ length: quantidadeSessoes }, (_, index) => {
       const dataSessao = adicionarDias(dataPrimeiraSessao, index * intervaloDias)
       const dataNormalizada = new Date(dataSessao)
       dataNormalizada.setHours(0, 0, 0, 0)
       const status = marcarPassadasComoConcluidas && dataNormalizada < hoje ? 'concluida' : 'agendada'
+      const n = ultimoNumeroSessao + index + 1
       return {
-        id: `sessao-${Date.now()}-${index}`,
-        numeroSessao: ultimoNumeroSessao + index + 1,
+        id: `sessao-${baseTs}-${index}`,
+        usuarioId: 'user-1',
+        tipo: 'quimio' as const,
         data: dataSessao,
+        titulo: `Sessão ${n} — Quimioterapia`,
+        numeroSessao: n,
+        ciclo: 1,
         status,
+        createdAt: new Date(),
       }
     })
 
@@ -164,7 +172,7 @@ export default function Diario() {
     setTabAtiva('proximas')
   }
 
-  if (!carregado) return null
+  if (!sessoesCarregadas || !eventosCarregados) return null
 
   return (
     <div className="min-h-screen bg-gray-50 pt-14 pb-24 md:pt-20 md:pb-0">
@@ -234,6 +242,11 @@ export default function Diario() {
             eventos={eventos}
             onAdicionarEvento={handleAdicionarEvento}
             onExcluirEvento={handleExcluirEvento}
+            onRegistrar={() => router.push('/diario?tab=registrar')}
+            onMarcarSessaoRealizada={(evento) => {
+              const sessaoId = evento.id.replace(/^sessao-/, '')
+              marcarComoRealizada(sessaoId)
+            }}
           />
         )}
 
@@ -241,6 +254,7 @@ export default function Diario() {
         {tabAtiva === 'registrar' && (
           <RegistroDiarioForm
             sessaoAtual={proximaSessao}
+            salvarRegistro={salvarRegistro}
             onSalvo={() => router.push('/diario?tab=hoje')}
           />
         )}

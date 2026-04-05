@@ -26,13 +26,25 @@ export function useSessoes() {
   const [carregado, setCarregado] = useState(false)
 
   useEffect(() => {
-    try {
-      const salvo = localStorage.getItem(CHAVE)
+    queueMicrotask(() => {
+      try {
+        const salvo = localStorage.getItem(CHAVE)
 
-      if (salvo) {
-        const parsed = JSON.parse(salvo) as SessaoQuimio[]
-        setSessoesState(hidratarLista(parsed))
-      } else {
+        if (salvo) {
+          const parsed = JSON.parse(salvo) as SessaoQuimio[]
+          setSessoesState(hidratarLista(parsed))
+        } else {
+          const mocksNormalizados = hidratarLista(
+            sessoesMock.map((sessao) => ({
+              ...sessao,
+              data: normalizarParaMeioDia(new Date(sessao.data)),
+              createdAt: normalizarParaMeioDia(new Date(sessao.createdAt)),
+            }))
+          )
+          setSessoesState(mocksNormalizados)
+          localStorage.setItem(CHAVE, JSON.stringify(mocksNormalizados))
+        }
+      } catch {
         const mocksNormalizados = hidratarLista(
           sessoesMock.map((sessao) => ({
             ...sessao,
@@ -41,20 +53,10 @@ export function useSessoes() {
           }))
         )
         setSessoesState(mocksNormalizados)
-        localStorage.setItem(CHAVE, JSON.stringify(mocksNormalizados))
       }
-    } catch {
-      const mocksNormalizados = hidratarLista(
-        sessoesMock.map((sessao) => ({
-          ...sessao,
-          data: normalizarParaMeioDia(new Date(sessao.data)),
-          createdAt: normalizarParaMeioDia(new Date(sessao.createdAt)),
-        }))
-      )
-      setSessoesState(mocksNormalizados)
-    }
 
-    setCarregado(true)
+      setCarregado(true)
+    })
   }, [])
 
   function setSessoes(

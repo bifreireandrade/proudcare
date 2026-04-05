@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { SessaoQuimio } from '@/lib/diario/types'
-import { useRegistros } from '@/lib/diario/use-registros'
+import { RegistroDiario, SessaoQuimio } from '@/lib/diario/types'
 import { formatarData } from '@/lib/diario/utils'
 
 type Props = {
   sessaoAtual?: SessaoQuimio | null
+  salvarRegistro: (r: Omit<RegistroDiario, 'id' | 'createdAt'>) => RegistroDiario
   onSalvo?: () => void
 }
 
@@ -52,8 +52,7 @@ const corEscala = (id: SintomaId, valor: number) => {
   }
 }
 
-export default function RegistroDiarioForm({ sessaoAtual, onSalvo }: Props) {
-  const { salvarRegistro } = useRegistros()
+export default function RegistroDiarioForm({ sessaoAtual, salvarRegistro, onSalvo }: Props) {
   const [valores, setValores] = useState<Partial<Record<SintomaId, number>>>({})
   const [observacoes, setObservacoes] = useState('')
   const [oQueAjudou, setOQueAjudou] = useState('')

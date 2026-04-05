@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { EventoSaude } from '@/lib/diario/types'
+import { EventoSaude, ExameSangue } from '@/lib/diario/types'
 import {
   addMonths,
   eachDayOfInterval,
@@ -201,7 +201,7 @@ function PainelDia({
                         </p>
                       )}
 
-                      {evento.tipo === 'exame' && (evento as any).jejum && (
+                      {evento.tipo === 'exame' && (evento as ExameSangue).jejum && (
                         <p className="mt-1 text-xs text-purple-500">Jejum necessário</p>
                       )}
 

@@ -11,23 +11,25 @@ export function useRegistros() {
   const [carregado, setCarregado] = useState(false)
 
   useEffect(() => {
-    try {
-      const salvo = localStorage.getItem(CHAVE)
-      if (salvo) {
-        const parsed = JSON.parse(salvo).map((r: RegistroDiario) => ({
-          ...r,
-          data: new Date(r.data),
-          createdAt: new Date(r.createdAt),
-        }))
-        setRegistrosState(parsed)
-      } else {
+    queueMicrotask(() => {
+      try {
+        const salvo = localStorage.getItem(CHAVE)
+        if (salvo) {
+          const parsed = JSON.parse(salvo).map((r: RegistroDiario) => ({
+            ...r,
+            data: new Date(r.data),
+            createdAt: new Date(r.createdAt),
+          }))
+          setRegistrosState(parsed)
+        } else {
+          setRegistrosState(registrosMock)
+          localStorage.setItem(CHAVE, JSON.stringify(registrosMock))
+        }
+      } catch {
         setRegistrosState(registrosMock)
-        localStorage.setItem(CHAVE, JSON.stringify(registrosMock))
       }
-    } catch {
-      setRegistrosState(registrosMock)
-    }
-    setCarregado(true)
+      setCarregado(true)
+    })
   }, [])
 
   function salvarRegistro(novoRegistro: Omit<RegistroDiario, 'id' | 'createdAt'>) {
