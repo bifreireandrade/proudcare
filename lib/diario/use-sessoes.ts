@@ -21,6 +21,11 @@ function hidratarLista(lista: SessaoQuimio[]): SessaoQuimio[] {
     .sort((a, b) => a.data.getTime() - b.data.getTime())
 }
 
+function renumerarPorData(sessoes: SessaoQuimio[]): SessaoQuimio[] {
+  const ordenadas = [...sessoes].sort((a, b) => a.data.getTime() - b.data.getTime())
+  return ordenadas.map((s, index) => ({ ...s, numeroSessao: index + 1 }))
+}
+
 export function useSessoes() {
   const [sessoes, setSessoesState] = useState<SessaoQuimio[]>([])
   const [carregado, setCarregado] = useState(false)
@@ -76,6 +81,29 @@ export function useSessoes() {
     )
   }
 
+  function editarSessao(
+    id: string,
+    campos: Partial<Pick<SessaoQuimio, 'data' | 'horario' | 'local' | 'status'>>
+  ) {
+    setSessoesState((atual) => {
+      const atualizado = atual.map((s) =>
+        s.id === id ? hidratarSessao({ ...s, ...campos }) : s
+      )
+      const resultado = renumerarPorData(atualizado)
+      localStorage.setItem(CHAVE, JSON.stringify(resultado))
+      return resultado
+    })
+  }
+
+  function excluirSessao(id: string) {
+    setSessoesState((atual) => {
+      const filtrado = atual.filter((s) => s.id !== id)
+      const resultado = renumerarPorData(filtrado)
+      localStorage.setItem(CHAVE, JSON.stringify(resultado))
+      return resultado
+    })
+  }
+
   function limparTudo() {
     localStorage.removeItem(CHAVE)
     const mocksNormalizados = hidratarLista(
@@ -88,5 +116,5 @@ export function useSessoes() {
     setSessoesState(mocksNormalizados)
   }
 
-  return { sessoes, setSessoes, marcarComoRealizada, limparTudo, carregado }
+  return { sessoes, setSessoes, marcarComoRealizada, editarSessao, excluirSessao, limparTudo, carregado }
 }

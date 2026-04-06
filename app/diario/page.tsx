@@ -2,18 +2,18 @@
 
 import { useMemo, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import ProximaSessao from '../components/diario/proxima-sessao'
+import SecaoHoje from '../components/diario/secao-hoje'
 import CardSessao from '../components/diario/card-sessao'
+import CardProximaSessao from '../components/diario/card-proxima-sessao'
 import Calendario from '../components/diario/calendario'
 import ModalEvento from '../components/diario/modal-evento'
-import ProgressoDaJornada from '../components/diario/progressodajornada'
 import OnboardingSessoes from '../components/diario/onboarding-sessoes'
 import RegistroDiarioForm from '../components/diario/registro-diario'
 import InsightIA from '../components/diario/insight-ia'
 import { useSessoes } from '@/lib/diario/use-sessoes'
 import { useRegistros } from '@/lib/diario/use-registros'
 import { useEventosManuais } from '@/lib/diario/use-eventos-manuais'
-import { formatarData, getProximaSessao } from '@/lib/diario/utils'
+import { getProximaSessao } from '@/lib/diario/utils'
 import { EventoSaude, SessaoQuimio } from '@/lib/diario/types'
 
 const tabs = [
@@ -32,13 +32,23 @@ function adicionarDias(data: Date, dias: number) {
   return novaData
 }
 
+function renumerarPorData(sessoes: SessaoQuimio[]): SessaoQuimio[] {
+  const ordenadas = [...sessoes].sort((a, b) => a.data.getTime() - b.data.getTime())
+  return ordenadas.map((s, index) => ({ ...s, numeroSessao: index + 1 }))
+}
+
 export default function Diario() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const { sessoes, setSessoes, marcarComoRealizada, carregado: sessoesCarregadas } = useSessoes()
-  const { registros, getRegistrosDaSessao, getUltimoRegistro, salvarRegistro } = useRegistros()
+  const {
+    sessoes, setSessoes, marcarComoRealizada, editarSessao, excluirSessao,
+    carregado: sessoesCarregadas,
+  } = useSessoes()
+
+  const { registros, getRegistrosDaSessao, salvarRegistro, getEstatisticasRegistro } = useRegistros()
   const { eventosManuais, setEventosManuais, carregado: eventosCarregados } = useEventosManuais()
+
   const [modalAberto, setModalAberto] = useState(false)
   const [diaSelecionadoModal, setDiaSelecionadoModal] = useState<Date | null>(null)
   const [mostrarOnboarding, setMostrarOnboarding] = useState(false)
@@ -50,7 +60,7 @@ export default function Diario() {
   const proximaSessao = getProximaSessao(sessoes)
   const totalSessoes = sessoes.length
   const sessoesConcluidas = sessoes.filter((s) => s.status === 'concluida').length
-  const ultimoRegistro = getUltimoRegistro()
+  const { diasRegistradosNoMes, registrouHoje, diasDesdeUltimo, ultimoRegistro } = getEstatisticasRegistro()
 
   const eventosDeSessao = useMemo<EventoSaude[]>(
     () => sessoes.map((sessao) => ({
@@ -89,31 +99,23 @@ export default function Diario() {
   }
 
   const handleSalvarEvento = (novoEvento: Partial<EventoSaude>) => {
-    // Sessão de quimio entra no estado de sessões — aparece em Próximas e no progresso
     if (novoEvento.tipo === 'quimio_agendada') {
-      const ultimoNumero = sessoes.length > 0
-        ? Math.max(...sessoes.map((s) => s.numeroSessao))
-        : 0
       const novaSessao: SessaoQuimio = {
         id: `sessao-${Date.now()}`,
         usuarioId: 'user-1',
         tipo: 'quimio',
         data: novoEvento.data!,
         titulo: novoEvento.titulo ?? 'Sessão de quimioterapia',
-        numeroSessao: ultimoNumero + 1,
+        numeroSessao: 0,
         ciclo: 1,
         status: 'agendada',
         horario: novoEvento.horario,
         local: novoEvento.local,
         createdAt: new Date(),
       }
-      setSessoes((atual) =>
-        [...atual, novaSessao].sort((a, b) => a.data.getTime() - b.data.getTime())
-      )
+      setSessoes((atual) => renumerarPorData([...atual, novaSessao]))
       return
     }
-
-    // Exame e retorno vão para eventosManuais
     const eventoCompleto: EventoSaude = {
       id: `evento-${Date.now()}`,
       usuarioId: novoEvento.usuarioId || 'user-1',
@@ -140,34 +142,27 @@ export default function Diario() {
     intervaloDias: number
     marcarPassadasComoConcluidas: boolean
   }) => {
-    const ultimoNumeroSessao = sessoes.length > 0
-      ? Math.max(...sessoes.map((s) => s.numeroSessao)) : 0
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
-
     const baseTs = Date.now()
     const novasSessoes: SessaoQuimio[] = Array.from({ length: quantidadeSessoes }, (_, index) => {
       const dataSessao = adicionarDias(dataPrimeiraSessao, index * intervaloDias)
       const dataNormalizada = new Date(dataSessao)
       dataNormalizada.setHours(0, 0, 0, 0)
       const status = marcarPassadasComoConcluidas && dataNormalizada < hoje ? 'concluida' : 'agendada'
-      const n = ultimoNumeroSessao + index + 1
       return {
         id: `sessao-${baseTs}-${index}`,
         usuarioId: 'user-1',
         tipo: 'quimio' as const,
         data: dataSessao,
-        titulo: `Sessão ${n} — Quimioterapia`,
-        numeroSessao: n,
+        titulo: 'Sessão de quimioterapia',
+        numeroSessao: 0,
         ciclo: 1,
         status,
         createdAt: new Date(),
       }
     })
-
-    setSessoes((atual) =>
-      [...atual, ...novasSessoes].sort((a, b) => a.data.getTime() - b.data.getTime())
-    )
+    setSessoes((atual) => renumerarPorData([...atual, ...novasSessoes]))
     setMostrarOnboarding(false)
     setTabAtiva('proximas')
   }
@@ -178,7 +173,6 @@ export default function Diario() {
     <div className="min-h-screen bg-gray-50 pt-14 pb-24 md:pt-20 md:pb-0">
       <div className="max-w-2xl mx-auto px-4 py-4 md:py-10">
 
-        {/* Tabs — só desktop */}
         <div className="hidden md:flex gap-2 mb-8 flex-wrap">
           {tabs.map((tab) => {
             const ativa = tabAtiva === tab.id
@@ -193,50 +187,21 @@ export default function Diario() {
           })}
         </div>
 
-        {/* ABA: HOJE */}
         {tabAtiva === 'hoje' && (
-          <div className="space-y-3">
-            <ProgressoDaJornada
-              totalSessoes={totalSessoes}
-              sessoesConcluidas={sessoesConcluidas}
-              onVerHistorico={() => setTabAtiva('historico')}
-              onVerProximas={() => setTabAtiva('proximas')}
-            />
-
-            {proximaSessao && <ProximaSessao sessao={proximaSessao} />}
-
-            <section className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm">
-              <h2 className="font-heading text-base font-semibold text-proud-dark mb-1">
-                Como você está hoje?
-              </h2>
-              <p className="text-xs text-proud-gray mb-3">
-                {ultimoRegistro
-                  ? `Último registro: ${formatarData(new Date(ultimoRegistro.data))}`
-                  : 'Você ainda não fez nenhum registro.'}
-              </p>
-              <button
-                onClick={() => router.push('/diario?tab=registrar')}
-                className="w-full bg-proud-pink text-white py-3 rounded-xl text-sm font-medium"
-              >
-                Registrar como estou agora
-              </button>
-            </section>
-
-            {totalSessoes === 0 && (
-              <section className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm text-center">
-                <p className="text-sm text-proud-gray mb-3">
-                  Adicione suas sessões para organizar sua jornada.
-                </p>
-                <button type="button" onClick={() => setMostrarOnboarding(true)}
-                  className="rounded-full bg-proud-pink px-5 py-2 text-sm font-medium text-white">
-                  Adicionar sessões
-                </button>
-              </section>
-            )}
-          </div>
+          <SecaoHoje
+            totalSessoes={totalSessoes}
+            sessoesConcluidas={sessoesConcluidas}
+            proximaSessao={proximaSessao}
+            sessoesFuturas={sessoesFuturas}
+            diasRegistradosNoMes={diasRegistradosNoMes}
+            registrouHoje={registrouHoje}
+            diasDesdeUltimo={diasDesdeUltimo}
+            ultimoRegistro={ultimoRegistro}
+            onVerHistorico={() => setTabAtiva('historico')}
+            onVerProximas={() => setTabAtiva('proximas')}
+          />
         )}
 
-        {/* ABA: CALENDÁRIO */}
         {tabAtiva === 'calendario' && (
           <Calendario
             eventos={eventos}
@@ -250,7 +215,6 @@ export default function Diario() {
           />
         )}
 
-        {/* ABA: REGISTRAR */}
         {tabAtiva === 'registrar' && (
           <RegistroDiarioForm
             sessaoAtual={proximaSessao}
@@ -259,7 +223,6 @@ export default function Diario() {
           />
         )}
 
-        {/* ABA: HISTÓRICO */}
         {tabAtiva === 'historico' && (
           <div className="space-y-4">
             <InsightIA registros={registros} />
@@ -281,7 +244,6 @@ export default function Diario() {
           </div>
         )}
 
-        {/* ABA: PRÓXIMAS — só desktop */}
         {tabAtiva === 'proximas' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -298,28 +260,13 @@ export default function Diario() {
 
             {sessoesFuturas.length > 0 ? (
               sessoesFuturas.map((sessao) => (
-                <section key={sessao.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-proud-gray mb-0.5">Sessão agendada</p>
-                      <h3 className="font-heading text-base font-semibold text-proud-dark">
-                        Sessão {sessao.numeroSessao}
-                      </h3>
-                      <p className="text-xs text-proud-gray mt-0.5">{formatarData(sessao.data)}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (confirm(`Marcar Sessão ${sessao.numeroSessao} como realizada?`)) {
-                          marcarComoRealizada(sessao.id)
-                        }
-                      }}
-                      className="rounded-full bg-proud-pink/10 px-3 py-1.5 text-xs font-medium text-proud-pink hover:bg-proud-pink hover:text-white transition"
-                    >
-                      Realizada
-                    </button>
-                  </div>
-                </section>
+                <CardProximaSessao
+                  key={sessao.id}
+                  sessao={sessao}
+                  onMarcarRealizada={marcarComoRealizada}
+                  onEditar={editarSessao}
+                  onExcluir={excluirSessao}
+                />
               ))
             ) : (
               <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">

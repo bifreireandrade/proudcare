@@ -1,12 +1,19 @@
+'use client'
+
+import { useState } from 'react'
 import { SessaoQuimio } from '@/lib/diario/types'
 import { getDiasAte, formatarData } from '@/lib/diario/utils'
 
 type Props = {
   sessao: SessaoQuimio
+  onRegistrar?: () => void
 }
 
-export default function ProximaSessao({ sessao }: Props) {
+export default function ProximaSessao({ sessao, onRegistrar }: Props) {
   const diasAte = getDiasAte(sessao.data)
+  const [detalhesAbertos, setDetalhesAbertos] = useState(false)
+
+  const temDetalhes = sessao.horario || sessao.local
 
   const labelTempo = () => {
     if (diasAte === 0) return 'Hoje'
@@ -42,23 +49,50 @@ export default function ProximaSessao({ sessao }: Props) {
         {formatarData(sessao.data)}
       </p>
 
-      <p className="text-sm text-proud-gray mb-6 leading-relaxed">
+      <p className="text-sm text-proud-gray mb-4 leading-relaxed">
         {mensagemContexto()}
       </p>
 
+      {/* Painel de detalhes */}
+      {detalhesAbertos && (
+        <div className="bg-white/70 rounded-xl p-4 mb-4 space-y-2">
+          {sessao.horario && (
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-proud-gray w-14 shrink-0">Horário</span>
+              <span className="text-sm font-medium text-proud-dark">{sessao.horario}</span>
+            </div>
+          )}
+          {sessao.local && (
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-proud-gray w-14 shrink-0">Local</span>
+              <span className="text-sm font-medium text-proud-dark">{sessao.local}</span>
+            </div>
+          )}
+          {!temDetalhes && (
+            <p className="text-xs text-proud-gray leading-relaxed">
+              Nenhum detalhe cadastrado para essa sessão ainda.
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="flex flex-col gap-3">
+        {/* Bug 1 corrigido: onRegistrar conectado ao botão */}
         <button
           type="button"
+          onClick={onRegistrar}
           className="w-full bg-proud-pink text-white py-3 rounded-lg font-medium hover:bg-proud-pink/90 transition shadow-sm"
         >
           Registrar como estou me sentindo
         </button>
 
+        {/* Bug 2 corrigido: abre painel de detalhes inline */}
         <button
           type="button"
+          onClick={() => setDetalhesAbertos((v) => !v)}
           className="w-full bg-white text-proud-pink border border-proud-pink/30 py-3 rounded-lg font-medium hover:bg-proud-pink/5 transition"
         >
-          Ver detalhes da sessão
+          {detalhesAbertos ? 'Fechar detalhes ↑' : 'Ver detalhes da sessão ↓'}
         </button>
       </div>
     </div>

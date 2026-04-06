@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { RegistroDiario } from './types'
 import { registrosMock } from './mock-data'
+import { differenceInCalendarDays, isSameDay, startOfMonth } from 'date-fns'
 
 const CHAVE = 'proudcare:registros'
 
@@ -56,5 +57,34 @@ export function useRegistros() {
     )[0] ?? null
   }
 
-  return { registros, salvarRegistro, getRegistrosDaSessao, getUltimoRegistro, carregado }
+  function getEstatisticasRegistro() {
+    const hoje = new Date()
+    const inicioMes = startOfMonth(hoje)
+
+    const diasUnicosNoMes = new Set(
+      registros
+        .filter((r) => new Date(r.data) >= inicioMes)
+        .map((r) => {
+          const d = new Date(r.data)
+          return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+        })
+    )
+    const diasRegistradosNoMes = diasUnicosNoMes.size
+    const registrouHoje = registros.some((r) => isSameDay(new Date(r.data), hoje))
+    const ultimo = getUltimoRegistro()
+    const diasDesdeUltimo = ultimo
+      ? differenceInCalendarDays(hoje, new Date(ultimo.data))
+      : null
+
+    return { diasRegistradosNoMes, registrouHoje, diasDesdeUltimo, ultimoRegistro: ultimo }
+  }
+
+  return {
+    registros,
+    salvarRegistro,
+    getRegistrosDaSessao,
+    getUltimoRegistro,
+    getEstatisticasRegistro,
+    carregado,
+  }
 }
