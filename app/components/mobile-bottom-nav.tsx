@@ -16,14 +16,13 @@ const items = [
     ),
   },
   {
-    href: '/diario?tab=calendario',
-    label: 'Calendário',
+    href: '/diario?tab=registrar',
+    label: 'Registrar',
     matchPath: '/diario',
-    matchTab: 'calendario',
+    matchTab: 'registrar',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <rect x="3" y="5" width="18" height="16" rx="2" strokeWidth="1.8" />
-        <path strokeLinecap="round" strokeWidth="1.8" d="M8 3v4M16 3v4M3 9h18" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
       </svg>
     ),
   },

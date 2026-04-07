@@ -5,7 +5,6 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import SecaoHoje from '../components/diario/secao-hoje'
 import CardSessao from '../components/diario/card-sessao'
 import CardProximaSessao from '../components/diario/card-proxima-sessao'
-import Calendario from '../components/diario/calendario'
 import ModalEvento from '../components/diario/modal-evento'
 import OnboardingSessoes from '../components/diario/onboarding-sessoes'
 import RegistroDiarioForm from '../components/diario/registro-diario'
@@ -13,12 +12,11 @@ import InsightIA from '../components/diario/insight-ia'
 import { useSessoes } from '@/lib/diario/use-sessoes'
 import { useRegistros } from '@/lib/diario/use-registros'
 import { useEventosManuais } from '@/lib/diario/use-eventos-manuais'
-import { getProximaSessao } from '@/lib/diario/utils'
+import { getProximaSessao, getUltimaSessaoConcluida } from '@/lib/diario/utils'
 import { EventoSaude, SessaoQuimio } from '@/lib/diario/types'
 
 const tabs = [
   { id: 'hoje', label: 'Hoje' },
-  { id: 'calendario', label: 'Calendário' },
   { id: 'registrar', label: 'Registrar' },
   { id: 'historico', label: 'Histórico' },
   { id: 'proximas', label: 'Próximas' },
@@ -58,9 +56,19 @@ export default function Diario() {
   const setTabAtiva = (tab: TabId) => router.push(`/diario?tab=${tab}`)
 
   const proximaSessao = getProximaSessao(sessoes)
+  const ultimaSessao = getUltimaSessaoConcluida(sessoes)
   const totalSessoes = sessoes.length
   const sessoesConcluidas = sessoes.filter((s) => s.status === 'concluida').length
-  const { diasRegistradosNoMes, registrouHoje, diasDesdeUltimo, ultimoRegistro } = getEstatisticasRegistro()
+
+  const { diasRegistradosNoMes, registrouHoje, diasDesdeUltimo, ultimoRegistro } =
+    getEstatisticasRegistro()
+
+  const registrosRecentes = useMemo(
+    () => [...registros]
+      .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+      .slice(-3),
+    [registros]
+  )
 
   const eventosDeSessao = useMemo<EventoSaude[]>(
     () => sessoes.map((sessao) => ({
@@ -173,6 +181,7 @@ export default function Diario() {
     <div className="min-h-screen bg-gray-50 pt-14 pb-24 md:pt-20 md:pb-0">
       <div className="max-w-2xl mx-auto px-4 py-4 md:py-10">
 
+        {/* Tabs — só desktop */}
         <div className="hidden md:flex gap-2 mb-8 flex-wrap">
           {tabs.map((tab) => {
             const ativa = tabAtiva === tab.id
@@ -187,27 +196,25 @@ export default function Diario() {
           })}
         </div>
 
+        {/* ABA: HOJE */}
         {tabAtiva === 'hoje' && (
           <SecaoHoje
             totalSessoes={totalSessoes}
             sessoesConcluidas={sessoesConcluidas}
             proximaSessao={proximaSessao}
+            ultimaSessao={ultimaSessao}
             sessoesFuturas={sessoesFuturas}
             diasRegistradosNoMes={diasRegistradosNoMes}
             registrouHoje={registrouHoje}
             diasDesdeUltimo={diasDesdeUltimo}
             ultimoRegistro={ultimoRegistro}
+            registrosRecentes={registrosRecentes}
+            eventos={eventos}
             onVerHistorico={() => setTabAtiva('historico')}
             onVerProximas={() => setTabAtiva('proximas')}
-          />
-        )}
-
-        {tabAtiva === 'calendario' && (
-          <Calendario
-            eventos={eventos}
+            onEditarSessao={editarSessao}
             onAdicionarEvento={handleAdicionarEvento}
             onExcluirEvento={handleExcluirEvento}
-            onRegistrar={() => router.push('/diario?tab=registrar')}
             onMarcarSessaoRealizada={(evento) => {
               const sessaoId = evento.id.replace(/^sessao-/, '')
               marcarComoRealizada(sessaoId)
@@ -215,6 +222,7 @@ export default function Diario() {
           />
         )}
 
+        {/* ABA: REGISTRAR */}
         {tabAtiva === 'registrar' && (
           <RegistroDiarioForm
             sessaoAtual={proximaSessao}
@@ -223,6 +231,7 @@ export default function Diario() {
           />
         )}
 
+        {/* ABA: HISTÓRICO */}
         {tabAtiva === 'historico' && (
           <div className="space-y-4">
             <InsightIA registros={registros} />
@@ -244,6 +253,7 @@ export default function Diario() {
           </div>
         )}
 
+        {/* ABA: PRÓXIMAS */}
         {tabAtiva === 'proximas' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">

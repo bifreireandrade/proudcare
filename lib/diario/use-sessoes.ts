@@ -83,7 +83,7 @@ export function useSessoes() {
 
   function editarSessao(
     id: string,
-    campos: Partial<Pick<SessaoQuimio, 'data' | 'horario' | 'local' | 'status'>>
+    campos: Partial<Pick<SessaoQuimio, 'data' | 'horario' | 'local' | 'status' | 'descricao'>>
   ) {
     setSessoesState((atual) => {
       const atualizado = atual.map((s) =>
