@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { SessaoQuimio, RegistroDiario, EventoSaude } from '@/lib/diario/types'
 import { getDiasAte, getDiasApos } from '@/lib/diario/utils'
 import ProximaSessao from './proxima-sessao'
@@ -19,6 +18,8 @@ type Props = {
   eventos: EventoSaude[]
   onVerHistorico: () => void
   onVerProximas: () => void
+  onVerCalendario: () => void
+  onRegistrar: () => void
   onEditarSessao: (
     id: string,
     campos: Partial<Pick<SessaoQuimio, 'data' | 'horario' | 'local' | 'descricao'>>
@@ -30,9 +31,9 @@ type Props = {
 
 function saudacao(): string {
   const hora = new Date().getHours()
-  if (hora < 12) return 'Bom dia ☀️'
-  if (hora < 18) return 'Boa tarde 🌤️'
-  return 'Boa noite 🌙'
+  if (hora < 12) return 'Bom dia'
+  if (hora < 18) return 'Boa tarde'
+  return 'Boa noite'
 }
 
 function contextoDaJornada(
@@ -56,58 +57,70 @@ function contextoDaJornada(
   return 'Vamos organizar sua jornada com calma.'
 }
 
-function mensagemContextual(
+function tituloMomentoAtual(
   ultimaSessao: SessaoQuimio | null,
   proximaSessao: SessaoQuimio | null
-): string | null {
+): string {
+  if (proximaSessao) {
+    const diasAte = getDiasAte(proximaSessao.data)
+    if (diasAte === 0) return 'Hoje é dia de sessão'
+    if (diasAte === 1) return 'Você está a 1 dia da sessão'
+    if (diasAte <= 3) return `Você está a ${diasAte} dias da sessão`
+    return 'Você está entre sessões'
+  }
+
+  if (ultimaSessao) {
+    const diasApos = getDiasApos(ultimaSessao.data)
+    if (diasApos <= 0) return 'Hoje é um dia importante'
+    if (diasApos <= 2) return 'Seu corpo está em fase mais sensível'
+    if (diasApos <= 5) return 'Você está em recuperação'
+    return 'Você está em uma fase de intervalo'
+  }
+
+  return 'Seu momento agora'
+}
+
+function descricaoMomentoAtual(
+  ultimaSessao: SessaoQuimio | null,
+  proximaSessao: SessaoQuimio | null
+): string {
   if (proximaSessao) {
     const diasAte = getDiasAte(proximaSessao.data)
 
     if (diasAte === 0) {
-      return 'Hoje é um dia importante. Respire no seu tempo e foque só no próximo passo.'
+      return 'Tente manter o dia o mais simples possível. Foque no que precisa ser feito agora.'
     }
 
     if (diasAte === 1) {
-      return 'Sua sessão é amanhã. Pode ser um bom momento para separar o que você vai precisar e deixar o dia mais leve.'
+      return 'Vale se preparar com calma hoje, separando o que você vai levar e reduzindo exigências.'
     }
 
     if (diasAte <= 3) {
-      return 'Sua próxima sessão está chegando. Tente preservar sua energia e manter o que te ajuda a se sentir mais preparada.'
+      return 'Esse costuma ser um momento de antecipação. Pode ajudar organizar os próximos dias e preservar energia.'
     }
 
-    return 'Ainda há um pequeno intervalo até a próxima sessão. Aproveite este tempo para se observar com calma.'
+    return 'Você ainda tem um pequeno intervalo. Pode ser um bom momento para observar como está e registrar isso.'
   }
 
   if (ultimaSessao) {
     const diasApos = getDiasApos(ultimaSessao.data)
 
-    if (diasApos <= 0) return null
+    if (diasApos <= 0) {
+      return 'Hoje pede mais presença e menos cobrança. Vá no seu ritmo.'
+    }
 
     if (diasApos <= 2) {
-      return 'Esses primeiros dias depois da sessão costumam exigir mais cuidado com o corpo e com o ritmo.'
+      return 'Esses primeiros dias costumam pedir mais cuidado com o corpo, descanso e observação dos sintomas.'
     }
 
     if (diasApos <= 5) {
-      return 'Você está atravessando a fase de recuperação. Vale observar o que melhora e o que ainda pede atenção.'
+      return 'Seu corpo está processando a sessão. Vale observar sinais de melhora e o que ajuda no seu dia.'
     }
 
-    return 'Seu corpo já avançou alguns dias desde a última sessão. Registrar como você está pode ajudar a entender seus padrões com mais clareza.'
+    return 'Você está em um intervalo entre sessões. Esse é um bom momento para acompanhar padrões com mais clareza.'
   }
 
-  return 'Registrar como você está pode ajudar a acompanhar sua jornada com mais clareza.'
-}
-
-function mensagemLembrete(
-  diasDesdeUltimo: number | null,
-  registrouHoje: boolean
-): string | null {
-  if (registrouHoje) return 'Seu registro de hoje já foi salvo.'
-  if (diasDesdeUltimo === null) {
-    return 'Você ainda não fez nenhum registro. Quando quiser, pode começar por aqui.'
-  }
-  if (diasDesdeUltimo === 1) return 'Seu último registro foi ontem.'
-  if (diasDesdeUltimo <= 4) return `Seu último registro foi há ${diasDesdeUltimo} dias.`
-  return 'Faz alguns dias desde o último registro. Quando estiver bem, vale anotar como você está hoje.'
+  return 'Seu app vai te ajudar a acompanhar a jornada com mais clareza ao longo do tempo.'
 }
 
 function labelContador(dias: number): string {
@@ -148,8 +161,8 @@ function gerarInsight(
       if (typeof picoEnjoo.enjoo === 'number' && picoEnjoo.enjoo >= 6) {
         const descricaoBase =
           picoEnjoo.diasAposSessao === 0
-            ? 'Nos seus registros mais recentes, o enjoo apareceu com mais intensidade no próprio dia da sessão.'
-            : `Nos seus registros mais recentes, o enjoo apareceu com mais intensidade ${
+            ? 'Nos seus registros recentes, o enjoo apareceu com mais intensidade no próprio dia da sessão.'
+            : `Nos seus registros recentes, o enjoo apareceu com mais intensidade ${
                 picoEnjoo.diasAposSessao === 1
                   ? 'no dia seguinte à sessão'
                   : `${picoEnjoo.diasAposSessao} dias após a sessão`
@@ -157,7 +170,7 @@ function gerarInsight(
 
         const fechamento =
           ultimoEnjoo < (picoEnjoo.enjoo ?? 0)
-            ? 'Depois disso, ele mostrou sinal de redução.'
+            ? 'Depois disso, houve sinais de melhora.'
             : 'Vale continuar observando como ele evolui nos próximos dias.'
 
         return {
@@ -222,30 +235,60 @@ export default function SecaoHoje({
   ultimaSessao,
   diasRegistradosNoMes,
   registrouHoje,
-  diasDesdeUltimo,
   ultimoRegistro,
   registrosRecentes,
   onVerHistorico,
-  onVerProximas,
+  onVerCalendario,
+  onRegistrar,
   onEditarSessao,
 }: Props) {
-  const router = useRouter()
-
   const contexto = contextoDaJornada(ultimaSessao, proximaSessao)
-  const mensagem = mensagemContextual(ultimaSessao, proximaSessao)
-  const lembrete = mensagemLembrete(diasDesdeUltimo, registrouHoje)
   const insight = gerarInsight(registrosRecentes, ultimoRegistro)
 
   const progressoPercentual =
-    totalSessoes > 0
-      ? Math.min((sessoesConcluidas / totalSessoes) * 100, 100)
-      : 0
+    totalSessoes > 0 ? Math.min((sessoesConcluidas / totalSessoes) * 100, 100) : 0
+
+  const textoRegistro = registrouHoje
+    ? 'Seu registro de hoje já foi salvo.'
+    : 'Se fizer sentido hoje, vale registrar como você está.'
 
   return (
     <div className="space-y-4">
       <section className="px-1 pt-1">
-        <p className="text-sm font-medium text-proud-dark">{saudacao()}</p>
+        <p className="text-sm font-medium text-proud-dark">{saudacao()}.</p>
         <p className="mt-1 text-sm text-proud-gray">{contexto}</p>
+      </section>
+
+      <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-proud-gray">
+          Seu ciclo atual
+        </p>
+
+        <h2 className="mt-2 text-xl font-semibold text-proud-dark">
+          {tituloMomentoAtual(ultimaSessao, proximaSessao)}
+        </h2>
+
+        <p className="mt-3 text-sm leading-relaxed text-proud-gray">
+          {descricaoMomentoAtual(ultimaSessao, proximaSessao)}
+        </p>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={onRegistrar}
+            className="rounded-xl bg-proud-pink px-4 py-2.5 text-sm font-medium text-white"
+          >
+            Registrar como estou
+          </button>
+
+          <button
+            type="button"
+            onClick={onVerCalendario}
+            className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-proud-dark"
+          >
+            Ver calendário
+          </button>
+        </div>
       </section>
 
       {proximaSessao ? (
@@ -256,15 +299,15 @@ export default function SecaoHoje({
             Vamos começar pela sua organização
           </p>
           <p className="mt-2 text-sm leading-relaxed text-proud-gray">
-            Você ainda não adicionou suas sessões no app. Quando quiser, podemos
-            organizar isso com calma.
+            Você ainda não adicionou suas sessões no app. Quando quiser, podemos organizar
+            isso com calma.
           </p>
           <button
             type="button"
-            onClick={onVerProximas}
+            onClick={onVerHistorico}
             className="mt-4 rounded-xl bg-proud-pink px-4 py-3 text-sm font-medium text-white"
           >
-            Adicionar sessões
+            Organizar jornada
           </button>
         </section>
       ) : (
@@ -273,50 +316,24 @@ export default function SecaoHoje({
             Suas sessões planejadas foram concluídas
           </p>
           <p className="mt-2 text-sm leading-relaxed text-proud-gray">
-            Sua jornada registrada no app chegou ao fim. Você ainda pode consultar
-            seu histórico quando quiser.
+            Sua jornada registrada no app chegou ao fim. Você ainda pode consultar seu
+            histórico quando quiser.
           </p>
           <button
             type="button"
             onClick={onVerHistorico}
             className="mt-4 text-sm font-medium text-proud-pink"
           >
-            Ver histórico →
+            Ver jornada →
           </button>
-        </section>
-      )}
-
-      {mensagem && (
-        <section className="rounded-3xl border border-proud-pink/10 bg-proud-pink/5 px-5 py-4">
-          <p className="text-sm leading-relaxed text-proud-dark">{mensagem}</p>
-        </section>
-      )}
-
-      {insight && (
-        <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-proud-gray">
-            Insight
-          </p>
-          <h2 className="mt-2 text-base font-semibold text-proud-dark">
-            {insight.titulo}
-          </h2>
-          <p className="mt-2 text-sm leading-relaxed text-proud-gray">
-            {insight.descricao}
-          </p>
         </section>
       )}
 
       <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-base font-semibold text-proud-dark">
-              Como você está hoje?
-            </h2>
-            {lembrete && (
-              <p className="mt-2 text-sm leading-relaxed text-proud-gray">
-                {lembrete}
-              </p>
-            )}
+            <h2 className="text-base font-semibold text-proud-dark">Como você está hoje?</h2>
+            <p className="mt-2 text-sm leading-relaxed text-proud-gray">{textoRegistro}</p>
           </div>
 
           <div className="rounded-full bg-gray-50 px-3 py-1 text-xs font-medium text-proud-gray">
@@ -324,28 +341,38 @@ export default function SecaoHoje({
           </div>
         </div>
 
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-4 flex flex-wrap gap-3">
           <button
             type="button"
-            onClick={() => router.push('/diario?tab=registrar')}
+            onClick={onRegistrar}
             className={`rounded-xl px-4 py-3 text-sm font-medium transition ${
               registrouHoje
                 ? 'border border-gray-200 bg-gray-50 text-proud-dark'
                 : 'bg-proud-pink text-white'
             }`}
           >
-            {registrouHoje ? 'Registrar novamente' : 'Registrar como estou agora'}
+            {registrouHoje ? 'Atualizar registro de hoje' : 'Registrar agora'}
           </button>
 
           <button
             type="button"
             onClick={onVerHistorico}
-            className="text-sm font-medium text-proud-pink"
+            className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-proud-dark"
           >
-            Ver histórico →
+            Ver jornada
           </button>
         </div>
       </section>
+
+      {insight && (
+        <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-proud-gray">
+            Insight
+          </p>
+          <h2 className="mt-2 text-base font-semibold text-proud-dark">{insight.titulo}</h2>
+          <p className="mt-2 text-sm leading-relaxed text-proud-gray">{insight.descricao}</p>
+        </section>
+      )}
 
       <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
         <div className="flex items-start justify-between gap-4">
@@ -363,7 +390,7 @@ export default function SecaoHoje({
           {totalSessoes > 0 && (
             <button
               type="button"
-              onClick={onVerProximas}
+              onClick={onVerHistorico}
               className="text-sm font-medium text-proud-pink"
             >
               Ver jornada →

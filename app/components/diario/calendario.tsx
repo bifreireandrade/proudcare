@@ -22,16 +22,9 @@ type Props = {
   onMarcarSessaoRealizada?: (evento: EventoSaude) => void
 }
 
-const corHexPorTipo: Record<string, string> = {
-  quimio_feita: '#D6188F',
-  quimio_agendada: '#4DD4E8',
-  retorno: '#22c55e',
-  exame: '#a855f7',
-}
-
-const corBgPorTipo: Record<string, string> = {
+const corPontoPorTipo: Record<string, string> = {
   quimio_feita: 'bg-proud-pink',
-  quimio_agendada: 'bg-proud-blue',
+  quimio_agendada: 'bg-proud-pink/70',
   retorno: 'bg-green-500',
   exame: 'bg-purple-500',
 }
@@ -48,7 +41,9 @@ function deduplicar(eventos: EventoSaude[]): EventoSaude[] {
       manual.tipo === 'quimio_agendada' ||
       manual.tipo === 'quimio_feita'
     ) {
-      return !sessoes.some((s) => isSameDay(criarDataLocalSegura(s.data), criarDataLocalSegura(manual.data)))
+      return !sessoes.some((s) =>
+        isSameDay(criarDataLocalSegura(s.data), criarDataLocalSegura(manual.data))
+      )
     }
 
     return true
@@ -71,58 +66,38 @@ function DiaCell({
   onClick: () => void
 }) {
   const num = format(dia, 'd')
-  const temEvento = eventos.length > 0
-
   const tiposUnicos = [...new Set(eventos.map((e) => e.tipo))].sort(
     (a, b) => ordemPrioridade.indexOf(a) - ordemPrioridade.indexOf(b)
   )
 
-  const cor1 = tiposUnicos[0] ? corHexPorTipo[tiposUnicos[0]] : null
-  const cor2 = tiposUnicos[1] ? corHexPorTipo[tiposUnicos[1]] : null
+  const temEvento = tiposUnicos.length > 0
 
-  const ringClass = selecionado
-    ? 'ring-2 ring-proud-dark ring-offset-1'
-    : hoje && !temEvento
-      ? 'ring-2 ring-proud-pink'
-      : hoje && temEvento
-        ? 'ring-2 ring-proud-pink ring-offset-1'
-        : ''
-
-  if (!temEvento) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className={`relative aspect-square rounded-lg text-xs text-proud-dark transition hover:bg-gray-100 ${ringClass} flex items-center justify-center`}
-      >
-        <span>{num}</span>
-        {hoje && <span className="absolute bottom-1 h-1 w-1 rounded-full bg-proud-pink" />}
-      </button>
-    )
-  }
-
-  if (cor2) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className={`relative aspect-square overflow-hidden rounded-lg text-xs font-bold text-white transition ${ringClass}`}
-        style={{
-          background: `linear-gradient(135deg, ${cor1} 50%, ${cor2} 50%)`,
-        }}
-      >
-        <span className="relative z-10 drop-shadow-sm">{num}</span>
-      </button>
-    )
-  }
+  const baseClass = selecionado
+    ? 'border-proud-dark bg-white'
+    : hoje
+      ? 'border-proud-pink bg-proud-pink/5'
+      : 'border-gray-100 bg-white hover:bg-gray-50'
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`aspect-square rounded-lg text-xs font-bold text-white transition ${corBgPorTipo[tiposUnicos[0]] ?? 'bg-gray-300'} ${ringClass} flex items-center justify-center`}
+      className={`relative aspect-square rounded-2xl border p-2 text-left transition ${baseClass}`}
     >
-      {num}
+      <span className={`text-sm font-medium ${hoje ? 'text-proud-dark' : 'text-proud-dark'}`}>
+        {num}
+      </span>
+
+      {temEvento && (
+        <div className="absolute bottom-2 left-2 flex items-center gap-1">
+          {tiposUnicos.slice(0, 3).map((tipo) => (
+            <span
+              key={tipo}
+              className={`h-1.5 w-1.5 rounded-full ${corPontoPorTipo[tipo] ?? 'bg-gray-300'}`}
+            />
+          ))}
+        </div>
+      )}
     </button>
   )
 }
@@ -146,10 +121,10 @@ function PainelDia({
   const hoje = isSameDay(dia, new Date())
 
   return (
-    <div className="mt-3 overflow-hidden rounded-2xl border border-gray-100 bg-white">
-      <div className="flex items-center justify-between border-b border-gray-100 bg-proud-pink/5 px-4 py-3">
+    <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
         <div>
-          <p className="text-sm font-semibold capitalize text-proud-dark">{dataFormatada}</p>
+          <p className="text-base font-semibold capitalize text-proud-dark">{dataFormatada}</p>
           {hoje && <p className="text-xs text-proud-pink">Hoje</p>}
         </div>
 
@@ -164,7 +139,7 @@ function PainelDia({
 
       <div className="divide-y divide-gray-50">
         {eventos.length === 0 ? (
-          <div className="px-4 py-5 text-center">
+          <div className="px-5 py-6 text-center">
             <p className="text-sm text-proud-gray">Nenhum evento nesse dia.</p>
           </div>
         ) : (
@@ -176,16 +151,19 @@ function PainelDia({
               isPassado(dataEvento)
 
             return (
-              <div key={evento.id} className="px-4 py-4">
+              <div key={evento.id} className="px-5 py-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex flex-1 items-start gap-3">
                     <div
-                      className="mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full"
-                      style={{ background: corHexPorTipo[evento.tipo] ?? '#ccc' }}
+                      className={`mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full ${
+                        corPontoPorTipo[evento.tipo] ?? 'bg-gray-300'
+                      }`}
                     />
 
                     <div className="flex-1">
-                      <p className="mb-0.5 text-sm font-semibold text-proud-dark">{evento.titulo}</p>
+                      <p className="mb-0.5 text-sm font-semibold text-proud-dark">
+                        {evento.titulo}
+                      </p>
 
                       {evento.horario && (
                         <p className="mb-0.5 text-xs text-proud-gray">{evento.horario}</p>
@@ -196,8 +174,8 @@ function PainelDia({
                       )}
 
                       {evento.tipo === 'quimio_agendada' && !sessaoPassadaPendente && (
-                        <p className="mt-1.5 text-xs leading-relaxed text-proud-blue">
-                          Chegue 1h antes para iniciar o resfriamento. Leve um lanche leve e um agasalho.
+                        <p className="mt-1.5 text-xs leading-relaxed text-proud-gray">
+                          Sessão planejada. Se quiser, você pode abrir o registro quando chegar o momento.
                         </p>
                       )}
 
@@ -210,12 +188,9 @@ function PainelDia({
                       )}
 
                       {sessaoPassadaPendente && (
-                        <div className="mt-3 rounded-xl bg-proud-pink/5 p-3">
+                        <div className="mt-3 rounded-2xl bg-proud-pink/5 p-3">
                           <p className="text-xs font-medium text-proud-dark">
                             Essa sessão aconteceu?
-                          </p>
-                          <p className="mt-1 text-xs leading-relaxed text-proud-gray">
-                            Se aconteceu, você pode marcar como realizada e depois registrar como se sentiu.
                           </p>
 
                           <div className="mt-3 flex gap-2">
@@ -237,15 +212,16 @@ function PainelDia({
                         </div>
                       )}
 
-                      {(evento.tipo === 'quimio_agendada' || evento.tipo === 'quimio_feita') && onRegistrar && (
-                        <button
-                          type="button"
-                          onClick={() => onRegistrar(evento)}
-                          className="mt-2 text-xs font-medium text-proud-pink"
-                        >
-                          Registrar como estou →
-                        </button>
-                      )}
+                      {(evento.tipo === 'quimio_agendada' || evento.tipo === 'quimio_feita') &&
+                        onRegistrar && (
+                          <button
+                            type="button"
+                            onClick={() => onRegistrar(evento)}
+                            className="mt-2 text-xs font-medium text-proud-pink"
+                          >
+                            Abrir registro →
+                          </button>
+                        )}
                     </div>
                   </div>
 
@@ -278,7 +254,7 @@ export default function Calendario({
   onMarcarSessaoRealizada,
 }: Props) {
   const [mesAtual, setMesAtual] = useState(new Date())
-  const [diaSelecionado, setDiaSelecionado] = useState<Date | null>(null)
+  const [diaSelecionado, setDiaSelecionado] = useState<Date | null>(new Date())
 
   const inicioDoMes = startOfMonth(mesAtual)
   const fimDoMes = endOfMonth(mesAtual)
@@ -302,47 +278,60 @@ export default function Calendario({
 
   const eventosDiaSelecionado = diaSelecionado ? getEventosNoDia(diaSelecionado) : []
 
-  const handleDiaClick = (dia: Date) => {
-    if (diaSelecionado && isSameDay(dia, diaSelecionado)) {
-      setDiaSelecionado(null)
-      return
-    }
-
-    setDiaSelecionado(dia)
-  }
+  const legenda = [
+    { label: 'Sessão concluída', classe: 'bg-proud-pink' },
+    { label: 'Sessão agendada', classe: 'bg-proud-pink/70' },
+    { label: 'Exame', classe: 'bg-purple-500' },
+    { label: 'Retorno', classe: 'bg-green-500' },
+  ]
 
   return (
-    <div>
-      <div className="rounded-2xl border border-gray-100 bg-white p-4">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-heading text-base font-semibold capitalize text-proud-dark">
-            {format(mesAtual, 'MMMM yyyy', { locale: ptBR })}
-          </h3>
+    <div className="space-y-4">
+      <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-proud-gray">
+              Calendário
+            </p>
+            <h2 className="mt-2 font-heading text-xl font-semibold capitalize text-proud-dark">
+              {format(mesAtual, 'MMMM yyyy', { locale: ptBR })}
+            </h2>
+          </div>
 
           <div className="flex gap-1">
             <button
               type="button"
               onClick={() => setMesAtual(subMonths(mesAtual, 1))}
-              className="rounded-lg p-1.5 transition hover:bg-gray-100"
+              className="rounded-xl border border-gray-100 p-2 transition hover:bg-gray-50"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
               </svg>
             </button>
 
             <button
               type="button"
               onClick={() => setMesAtual(addMonths(mesAtual, 1))}
-              className="rounded-lg p-1.5 transition hover:bg-gray-100"
+              className="rounded-xl border border-gray-100 p-2 transition hover:bg-gray-50"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
               </svg>
             </button>
           </div>
         </div>
 
-        <div className="mb-1 grid grid-cols-7">
+        <div className="mb-2 grid grid-cols-7">
           {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((d) => (
             <div key={d} className="py-1 text-center text-[11px] font-medium text-proud-gray">
               {d}
@@ -350,7 +339,7 @@ export default function Calendario({
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-2">
           {Array.from({ length: diasVaziosAntes }).map((_, i) => (
             <div key={`vazio-${i}`} className="aspect-square" />
           ))}
@@ -367,26 +356,21 @@ export default function Calendario({
                 eventos={eventosNoDia}
                 hoje={hoje}
                 selecionado={selecionado}
-                onClick={() => handleDiaClick(dia)}
+                onClick={() => setDiaSelecionado(dia)}
               />
             )
           })}
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-          {[
-            { cor: '#D6188F', label: 'Quimio feita' },
-            { cor: '#4DD4E8', label: 'Quimio agendada' },
-            { cor: '#a855f7', label: 'Exame' },
-            { cor: '#22c55e', label: 'Retorno' },
-          ].map(({ cor, label }) => (
-            <div key={label} className="flex items-center gap-1">
-              <div className="h-2.5 w-2.5 rounded-full" style={{ background: cor }} />
-              <span className="text-[10px] text-proud-gray">{label}</span>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          {legenda.map(({ label, classe }) => (
+            <div key={label} className="flex items-center gap-1.5">
+              <span className={`h-2.5 w-2.5 rounded-full ${classe}`} />
+              <span className="text-[11px] text-proud-gray">{label}</span>
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
       {diaSelecionado && (
         <PainelDia
