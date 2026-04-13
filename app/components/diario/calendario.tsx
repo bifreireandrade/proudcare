@@ -20,13 +20,21 @@ type Props = {
   onExcluirEvento?: (eventoId: string) => void
   onRegistrar?: (evento: EventoSaude) => void
   onMarcarSessaoRealizada?: (evento: EventoSaude) => void
+  onReagendarSessao?: (evento: EventoSaude) => void
 }
 
 const corPontoPorTipo: Record<string, string> = {
   quimio_feita: 'bg-proud-pink',
-  quimio_agendada: 'bg-proud-pink/70',
+  quimio_agendada: 'bg-proud-pink/50',
   retorno: 'bg-green-500',
   exame: 'bg-purple-500',
+}
+
+const corDotHex: Record<string, string> = {
+  quimio_feita: '#E879A0',
+  quimio_agendada: 'rgba(232,121,160,0.5)',
+  retorno: '#22C55E',
+  exame: '#A855F7',
 }
 
 const ordemPrioridade = ['quimio_feita', 'quimio_agendada', 'retorno', 'exame']
@@ -45,7 +53,6 @@ function deduplicar(eventos: EventoSaude[]): EventoSaude[] {
         isSameDay(criarDataLocalSegura(s.data), criarDataLocalSegura(manual.data))
       )
     }
-
     return true
   })
 
@@ -72,176 +79,146 @@ function DiaCell({
 
   const temEvento = tiposUnicos.length > 0
 
-  const baseClass = selecionado
-    ? 'border-proud-dark bg-white'
+  const circuloBg = selecionado
+    ? 'bg-proud-pink text-white'
     : hoje
-      ? 'border-proud-pink bg-proud-pink/5'
-      : 'border-gray-100 bg-white hover:bg-gray-50'
+      ? 'bg-proud-pink/10 text-proud-pink'
+      : 'text-proud-dark'
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`relative aspect-square rounded-2xl border p-2 text-left transition ${baseClass}`}
+      className="flex flex-col items-center gap-1 py-0.5"
     >
-      <span className={`text-sm font-medium ${hoje ? 'text-proud-dark' : 'text-proud-dark'}`}>
+      <div
+        className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition ${circuloBg}`}
+      >
         {num}
-      </span>
+      </div>
 
-      {temEvento && (
-        <div className="absolute bottom-2 left-2 flex items-center gap-1">
-          {tiposUnicos.slice(0, 3).map((tipo) => (
-            <span
-              key={tipo}
-              className={`h-1.5 w-1.5 rounded-full ${corPontoPorTipo[tipo] ?? 'bg-gray-300'}`}
-            />
-          ))}
-        </div>
-      )}
+      <div className="flex h-1.5 items-center gap-0.5">
+        {temEvento
+          ? tiposUnicos.slice(0, 3).map((tipo) => (
+              <span
+                key={tipo}
+                className={`h-1.5 w-1.5 rounded-full ${corPontoPorTipo[tipo] ?? 'bg-gray-300'}`}
+              />
+            ))
+          : null}
+      </div>
     </button>
   )
 }
 
-function PainelDia({
-  dia,
-  eventos,
-  onAdicionar,
-  onExcluir,
+function EventoCard({
+  evento,
   onRegistrar,
+  onExcluir,
   onMarcarSessaoRealizada,
+  onReagendarSessao,
 }: {
-  dia: Date
-  eventos: EventoSaude[]
-  onAdicionar: () => void
-  onExcluir?: (id: string) => void
+  evento: EventoSaude
   onRegistrar?: (evento: EventoSaude) => void
+  onExcluir?: (id: string) => void
   onMarcarSessaoRealizada?: (evento: EventoSaude) => void
+  onReagendarSessao?: (evento: EventoSaude) => void
 }) {
-  const dataFormatada = format(dia, "d 'de' MMMM", { locale: ptBR })
-  const hoje = isSameDay(dia, new Date())
+  const [expandido, setExpandido] = useState(false)
+  const dataEvento = criarDataLocalSegura(evento.data)
+  const sessaoPassadaPendente =
+    evento.tipo === 'quimio_agendada' &&
+    evento.id.startsWith('sessao-') &&
+    isPassado(dataEvento)
+
+  const dotColor = corDotHex[evento.tipo] ?? '#ccc'
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-        <div>
-          <p className="text-base font-semibold capitalize text-proud-dark">{dataFormatada}</p>
-          {hoje && <p className="text-xs text-proud-pink">Hoje</p>}
+    <div className="rounded-2xl bg-gray-50 p-3">
+      <button
+        type="button"
+        className="flex w-full items-center gap-3 text-left"
+        onClick={() => setExpandido((v) => !v)}
+      >
+        <span
+          className="mt-0.5 h-2.5 w-2.5 flex-shrink-0 rounded-full"
+          style={{ background: dotColor }}
+        />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-proud-dark truncate">{evento.titulo}</p>
+          {(evento.horario || evento.local) && (
+            <p className="text-xs text-proud-gray mt-0.5">
+              {[evento.horario, evento.local].filter(Boolean).join(' • ')}
+            </p>
+          )}
         </div>
-
-        <button
-          type="button"
-          onClick={onAdicionar}
-          className="rounded-full border border-proud-pink/30 px-3 py-1 text-xs font-medium text-proud-pink"
+        <svg
+          className={`h-4 w-4 text-proud-gray flex-shrink-0 transition-transform ${expandido ? 'rotate-180' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
         >
-          + Adicionar
-        </button>
-      </div>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
 
-      <div className="divide-y divide-gray-50">
-        {eventos.length === 0 ? (
-          <div className="px-5 py-6 text-center">
-            <p className="text-sm text-proud-gray">Nenhum evento nesse dia.</p>
-          </div>
-        ) : (
-          eventos.map((evento) => {
-            const dataEvento = criarDataLocalSegura(evento.data)
-            const sessaoPassadaPendente =
-              evento.tipo === 'quimio_agendada' &&
-              evento.id.startsWith('sessao-') &&
-              isPassado(dataEvento)
+      {expandido && (
+        <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+          {evento.tipo === 'exame' && (evento as ExameSangue).jejum && (
+            <p className="text-xs text-purple-500 font-medium">Jejum necessário</p>
+          )}
 
-            return (
-              <div key={evento.id} className="px-5 py-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex flex-1 items-start gap-3">
-                    <div
-                      className={`mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full ${
-                        corPontoPorTipo[evento.tipo] ?? 'bg-gray-300'
-                      }`}
-                    />
+          {evento.descricao && evento.tipo !== 'quimio_agendada' && (
+            <p className="text-xs text-proud-gray">{evento.descricao}</p>
+          )}
 
-                    <div className="flex-1">
-                      <p className="mb-0.5 text-sm font-semibold text-proud-dark">
-                        {evento.titulo}
-                      </p>
-
-                      {evento.horario && (
-                        <p className="mb-0.5 text-xs text-proud-gray">{evento.horario}</p>
-                      )}
-
-                      {evento.local && (
-                        <p className="mb-0.5 text-xs text-proud-gray">{evento.local}</p>
-                      )}
-
-                      {evento.tipo === 'quimio_agendada' && !sessaoPassadaPendente && (
-                        <p className="mt-1.5 text-xs leading-relaxed text-proud-gray">
-                          Sessão planejada. Se quiser, você pode abrir o registro quando chegar o momento.
-                        </p>
-                      )}
-
-                      {evento.tipo === 'exame' && (evento as ExameSangue).jejum && (
-                        <p className="mt-1 text-xs text-purple-500">Jejum necessário</p>
-                      )}
-
-                      {evento.descricao && evento.tipo !== 'quimio_agendada' && (
-                        <p className="mt-1 text-xs text-proud-gray">{evento.descricao}</p>
-                      )}
-
-                      {sessaoPassadaPendente && (
-                        <div className="mt-3 rounded-2xl bg-proud-pink/5 p-3">
-                          <p className="text-xs font-medium text-proud-dark">
-                            Essa sessão aconteceu?
-                          </p>
-
-                          <div className="mt-3 flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => onMarcarSessaoRealizada?.(evento)}
-                              className="rounded-full bg-proud-pink px-3 py-1.5 text-xs font-medium text-white"
-                            >
-                              Sim, aconteceu
-                            </button>
-
-                            <button
-                              type="button"
-                              className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-proud-gray"
-                            >
-                              Ainda não
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {(evento.tipo === 'quimio_agendada' || evento.tipo === 'quimio_feita') &&
-                        onRegistrar && (
-                          <button
-                            type="button"
-                            onClick={() => onRegistrar(evento)}
-                            className="mt-2 text-xs font-medium text-proud-pink"
-                          >
-                            Abrir registro →
-                          </button>
-                        )}
-                    </div>
-                  </div>
-
-                  {!evento.id.startsWith('sessao-') && onExcluir && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (confirm('Excluir este evento?')) onExcluir(evento.id)
-                      }}
-                      className="mt-0.5 text-lg leading-none text-gray-300 transition hover:text-red-400"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
+          {sessaoPassadaPendente && (
+            <div className="rounded-xl bg-proud-pink/5 p-3">
+              <p className="text-xs font-medium text-proud-dark">Essa sessão aconteceu?</p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => onMarcarSessaoRealizada?.(evento)}
+                  className="rounded-full bg-proud-pink px-3 py-1.5 text-xs font-medium text-white"
+                >
+                  Sim, aconteceu
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onReagendarSessao?.(evento)}
+                  className="rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-proud-gray"
+                >
+                  Reagendar
+                </button>
               </div>
-            )
-          })
-        )}
-      </div>
+            </div>
+          )}
+
+          {(evento.tipo === 'quimio_agendada' || evento.tipo === 'quimio_feita') &&
+            !sessaoPassadaPendente &&
+            onRegistrar && (
+              <button
+                type="button"
+                onClick={() => onRegistrar(evento)}
+                className="text-xs font-medium text-proud-pink"
+              >
+                Abrir registro →
+              </button>
+            )}
+
+          {!evento.id.startsWith('sessao-') && onExcluir && (
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm('Excluir este evento?')) onExcluir(evento.id)
+              }}
+              className="text-xs text-red-400 font-medium"
+            >
+              Excluir evento
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -252,6 +229,7 @@ export default function Calendario({
   onExcluirEvento,
   onRegistrar,
   onMarcarSessaoRealizada,
+  onReagendarSessao,
 }: Props) {
   const [mesAtual, setMesAtual] = useState(new Date())
   const [diaSelecionado, setDiaSelecionado] = useState<Date | null>(new Date())
@@ -273,6 +251,30 @@ export default function Calendario({
     [eventosDeduplicados]
   )
 
+  // próxima sessão futura
+  const proximaSessao = useMemo(() => {
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+    return eventosOrdenados.find((e) => {
+      const d = criarDataLocalSegura(e.data)
+      d.setHours(0, 0, 0, 0)
+      return (
+        d >= hoje &&
+        (e.tipo === 'quimio_agendada' || e.tipo === 'quimio_feita')
+      )
+    })
+  }, [eventosOrdenados])
+
+  const diasAteProxima = useMemo(() => {
+    if (!proximaSessao) return null
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+    const data = criarDataLocalSegura(proximaSessao.data)
+    data.setHours(0, 0, 0, 0)
+    const diff = Math.round((data.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
+    return diff
+  }, [proximaSessao])
+
   const getEventosNoDia = (dia: Date) =>
     eventosOrdenados.filter((e) => isSameDay(criarDataLocalSegura(e.data), dia))
 
@@ -280,23 +282,37 @@ export default function Calendario({
 
   const legenda = [
     { label: 'Sessão concluída', classe: 'bg-proud-pink' },
-    { label: 'Sessão agendada', classe: 'bg-proud-pink/70' },
+    { label: 'Sessão agendada', classe: 'bg-proud-pink/50' },
     { label: 'Exame', classe: 'bg-purple-500' },
     { label: 'Retorno', classe: 'bg-green-500' },
   ]
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-0">
       <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
-        <div className="mb-5 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-proud-gray">
-              Calendário
+
+        {/* Banner próxima sessão */}
+        {proximaSessao && diasAteProxima !== null && (
+          <div className="mb-5 flex items-center gap-3 rounded-2xl bg-proud-pink/5 px-4 py-3">
+            <span className="h-2 w-2 flex-shrink-0 rounded-full bg-proud-pink" />
+            <p className="text-xs text-proud-dark">
+              <span className="font-semibold">Próxima sessão</span>
+              {diasAteProxima === 0
+                ? ' — hoje'
+                : diasAteProxima === 1
+                  ? ' — amanhã'
+                  : ` — em ${diasAteProxima} dias`}
+              {' · '}
+              {format(criarDataLocalSegura(proximaSessao.data), "d 'de' MMMM", { locale: ptBR })}
             </p>
-            <h2 className="mt-2 font-heading text-xl font-semibold capitalize text-proud-dark">
-              {format(mesAtual, 'MMMM yyyy', { locale: ptBR })}
-            </h2>
           </div>
+        )}
+
+        {/* Header mês */}
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="font-heading text-xl font-semibold capitalize text-proud-dark">
+            {format(mesAtual, 'MMMM yyyy', { locale: ptBR })}
+          </h2>
 
           <div className="flex gap-1">
             <button
@@ -305,33 +321,23 @@ export default function Calendario({
               className="rounded-xl border border-gray-100 p-2 transition hover:bg-gray-50"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-
             <button
               type="button"
               onClick={() => setMesAtual(addMonths(mesAtual, 1))}
               className="rounded-xl border border-gray-100 p-2 transition hover:bg-gray-50"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
           </div>
         </div>
 
-        <div className="mb-2 grid grid-cols-7">
+        {/* Cabeçalho dias da semana */}
+        <div className="mb-1 grid grid-cols-7">
           {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((d) => (
             <div key={d} className="py-1 text-center text-[11px] font-medium text-proud-gray">
               {d}
@@ -339,7 +345,8 @@ export default function Calendario({
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        {/* Grid de dias */}
+        <div className="grid grid-cols-7">
           {Array.from({ length: diasVaziosAntes }).map((_, i) => (
             <div key={`vazio-${i}`} className="aspect-square" />
           ))}
@@ -362,26 +369,63 @@ export default function Calendario({
           })}
         </div>
 
+        {/* Legenda */}
         <div className="mt-5 flex flex-wrap items-center gap-3">
           {legenda.map(({ label, classe }) => (
             <div key={label} className="flex items-center gap-1.5">
-              <span className={`h-2.5 w-2.5 rounded-full ${classe}`} />
+              <span className={`h-2 w-2 rounded-full ${classe}`} />
               <span className="text-[11px] text-proud-gray">{label}</span>
             </div>
           ))}
         </div>
-      </section>
 
-      {diaSelecionado && (
-        <PainelDia
-          dia={diaSelecionado}
-          eventos={eventosDiaSelecionado}
-          onAdicionar={() => onAdicionarEvento?.(diaSelecionado)}
-          onExcluir={onExcluirEvento}
-          onRegistrar={onRegistrar}
-          onMarcarSessaoRealizada={onMarcarSessaoRealizada}
-        />
-      )}
+        {/* Separador */}
+        {diaSelecionado && (
+          <div className="mt-5 border-t border-gray-100" />
+        )}
+
+        {/* Painel do dia — integrado */}
+        {diaSelecionado && (
+          <div className="mt-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold capitalize text-proud-dark">
+                  {format(diaSelecionado, "d 'de' MMMM", { locale: ptBR })}
+                </p>
+                {isSameDay(diaSelecionado, new Date()) && (
+                  <p className="text-xs text-proud-pink">Hoje</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => onAdicionarEvento?.(diaSelecionado)}
+                className="rounded-full border border-proud-pink/30 px-3 py-1 text-xs font-medium text-proud-pink"
+              >
+                + Adicionar
+              </button>
+            </div>
+
+            {eventosDiaSelecionado.length === 0 ? (
+              <p className="py-4 text-center text-sm text-proud-gray">
+                Nenhum evento nesse dia.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {eventosDiaSelecionado.map((evento) => (
+                  <EventoCard
+                    key={evento.id}
+                    evento={evento}
+                    onRegistrar={onRegistrar}
+                    onExcluir={onExcluirEvento}
+                    onMarcarSessaoRealizada={onMarcarSessaoRealizada}
+                    onReagendarSessao={onReagendarSessao}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
     </div>
   )
 }

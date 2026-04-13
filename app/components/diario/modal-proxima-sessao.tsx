@@ -56,13 +56,13 @@ export default function ModalProximaSessao({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
+      className="fixed inset-0 z-[60] flex items-center justify-center px-5"
       onClick={onClose}
     >
       <div className="absolute inset-0 bg-black/40" />
 
       <div
-        className="relative w-full max-w-lg rounded-t-3xl bg-white px-5 pb-8 pt-5"
+        className="relative w-full max-w-sm rounded-3xl bg-white px-5 pb-6 pt-5 max-h-[80vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Handle */}

@@ -10,19 +10,21 @@ import ModalEvento from '../components/diario/modal-evento'
 import OnboardingSessoes from '../components/diario/onboarding-sessoes'
 import RegistroDiarioForm from '../components/diario/registro-diario'
 import InsightIA from '../components/diario/insight-ia'
+import SecaoRelatorio from '../components/diario/secao-relatorio'
 import { useSessoes } from '@/lib/diario/use-sessoes'
 import { useRegistros } from '@/lib/diario/use-registros'
 import { useEventosManuais } from '@/lib/diario/use-eventos-manuais'
 import { getProximaSessao, getUltimaSessaoConcluida } from '@/lib/diario/utils'
 import { EventoSaude, SessaoQuimio } from '@/lib/diario/types'
 
-const validTabs = ['hoje', 'calendario', 'jornada', 'registrar'] as const
+const validTabs = ['hoje', 'calendario', 'jornada', 'relatorio', 'registrar'] as const
 type TabId = (typeof validTabs)[number]
 
 const desktopTabs = [
   { id: 'hoje', label: 'Hoje' },
   { id: 'calendario', label: 'Calendário' },
   { id: 'jornada', label: 'Jornada' },
+  { id: 'relatorio', label: 'Relatório' },
 ] as const
 
 function adicionarDias(data: Date, dias: number) {
@@ -65,6 +67,7 @@ export default function Diario() {
   const [modalAberto, setModalAberto] = useState(false)
   const [diaSelecionadoModal, setDiaSelecionadoModal] = useState<Date | null>(null)
   const [mostrarOnboarding, setMostrarOnboarding] = useState(false)
+  const [reagendarEvento, setReagendarEvento] = useState<EventoSaude | null>(null)
 
   const tabParam = searchParams.get('tab') as TabId | null
   const tabAtiva: TabId = tabParam && validTabs.includes(tabParam) ? tabParam : 'hoje'
@@ -105,7 +108,6 @@ export default function Diario() {
   const eventos = useMemo(() => {
     const idsDeSessao = new Set(eventosDeSessao.map((e) => e.id))
     const outrosEventos = eventosManuais.filter((e) => !idsDeSessao.has(e.id))
-
     return [...eventosDeSessao, ...outrosEventos].sort(
       (a, b) => new Date(a.data).getTime() - new Date(b.data).getTime()
     )
@@ -132,7 +134,27 @@ export default function Diario() {
     setModalAberto(true)
   }
 
+  const handleReagendarSessao = (evento: EventoSaude) => {
+    setReagendarEvento(evento)
+    setDiaSelecionadoModal(new Date())
+    setModalAberto(true)
+  }
+
   const handleSalvarEvento = (novoEvento: Partial<EventoSaude>) => {
+    // se estamos reagendando uma sessão existente
+    if (reagendarEvento && novoEvento.data) {
+      const sessaoId = reagendarEvento.id.replace(/^sessao-/, '')
+      setSessoes((atual) =>
+        renumerarPorData(
+          atual.map((s) =>
+            s.id === sessaoId ? { ...s, data: novoEvento.data! } : s
+          )
+        )
+      )
+      setReagendarEvento(null)
+      return
+    }
+
     if (novoEvento.tipo === 'quimio_agendada') {
       const novaSessao: SessaoQuimio = {
         id: `sessao-${Date.now()}`,
@@ -148,7 +170,6 @@ export default function Diario() {
         descricao: novoEvento.descricao,
         createdAt: new Date(),
       }
-
       setSessoes((atual) => renumerarPorData([...atual, novaSessao]))
       return
     }
@@ -164,7 +185,6 @@ export default function Diario() {
       horario: novoEvento.horario,
       createdAt: new Date(),
     }
-
     setEventosManuais((prev) => [...prev, eventoCompleto])
   }
 
@@ -185,7 +205,6 @@ export default function Diario() {
   }) => {
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
-
     const baseTs = Date.now()
 
     const novasSessoes: SessaoQuimio[] = Array.from(
@@ -194,11 +213,8 @@ export default function Diario() {
         const dataSessao = adicionarDias(dataPrimeiraSessao, index * intervaloDias)
         const dataNormalizada = new Date(dataSessao)
         dataNormalizada.setHours(0, 0, 0, 0)
-
         const status =
-          marcarPassadasComoConcluidas && dataNormalizada < hoje
-            ? 'concluida'
-            : 'agendada'
+          marcarPassadasComoConcluidas && dataNormalizada < hoje ? 'concluida' : 'agendada'
 
         return {
           id: `sessao-${baseTs}-${index}`,
@@ -227,7 +243,6 @@ export default function Diario() {
         <div className="mb-8 hidden flex-wrap gap-2 md:flex">
           {desktopTabs.map((tab) => {
             const ativa = tabAtiva === tab.id
-
             return (
               <button
                 key={tab.id}
@@ -281,6 +296,7 @@ export default function Diario() {
               const sessaoId = evento.id.replace(/^sessao-/, '')
               marcarComoRealizada(sessaoId)
             }}
+            onReagendarSessao={handleReagendarSessao}
           />
         )}
 
@@ -365,6 +381,14 @@ export default function Diario() {
             </div>
           </div>
         )}
+
+        {tabAtiva === 'relatorio' && (
+          <SecaoRelatorio
+            eventos={eventos}
+            sessoes={sessoes}
+            registros={registros}
+          />
+        )}
       </div>
 
       <OnboardingSessoes
@@ -380,6 +404,7 @@ export default function Diario() {
           onClose={() => {
             setModalAberto(false)
             setDiaSelecionadoModal(null)
+            setReagendarEvento(null)
           }}
           dia={diaSelecionadoModal}
           onSalvar={handleSalvarEvento}

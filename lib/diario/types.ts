@@ -27,6 +27,7 @@ export type SessaoQuimio = EventoSaude & {
   numeroSessao: number
   ciclo: number
   status: 'agendada' | 'concluida' | 'cancelada'
+  acompanhante?: string
 }
 
 export type ExameSangue = EventoSaude & {
@@ -60,6 +61,16 @@ export type RegistroDiario = {
   observacoes?: string
   oQueAjudou?: string
 
+  createdAt: Date
+}
+
+export type TipoHumor = 'bem' | 'cansada' | 'enjoada' | 'com_dor'
+
+export type HumorDia = {
+  id: string
+  usuarioId: string
+  data: Date
+  humor: TipoHumor
   createdAt: Date
 }
 

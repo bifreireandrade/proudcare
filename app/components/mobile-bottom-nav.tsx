@@ -53,6 +53,22 @@ const items = [
     ),
   },
   {
+    href: '/diario?tab=relatorio',
+    label: 'Relatório',
+    matchPath: '/diario',
+    matchTab: 'relatorio',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.8}
+          d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+        />
+      </svg>
+    ),
+  },
+  {
     href: '/biblioteca',
     label: 'Apoio',
     matchPath: '/biblioteca',
@@ -83,7 +99,7 @@ export default function MobileBottomNav() {
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2">
-      <div className="grid grid-cols-4 items-center">
+      <div className="grid grid-cols-5 items-center">
         {items.map((item) => {
           const active = isActive(item)
 
